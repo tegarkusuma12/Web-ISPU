@@ -1,0 +1,15 @@
+# Mengabaikan folder environment Python
+venv/
+env/
+.venv/
+
+# Mengabaikan file cache Python
+__pycache__/
+*.pyc
+
+# Mengabaikan file database lokal (opsional, tapi disarankan)
+*.db
+*.sqlite3
+
+# Mengabaikan file konfigurasi VS Code
+.vscode/
