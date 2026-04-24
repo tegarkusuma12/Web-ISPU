@@ -3,11 +3,13 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import joblib
-from apscheduler.schedulers.blocking import BlockingScheduler
+import os
+from dotenv import load_dotenv
+from apscheduler.schedulers.blocking import BlockingScheduler # type: ignore
 from app import app, db, RiwayatCuaca, HasilPrediksi
 from ispu_logic import kalkulasi_ispu_final
 
-API_KEY = "a5053916414d07c5d4b4f88de911e561"
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 DAFTAR_KOTA = {
     "Surabaya": {"lat": -7.2504, "lon": 112.7688},

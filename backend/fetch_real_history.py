@@ -1,12 +1,14 @@
 # backend/fetch_real_history.py
 import requests
+import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from app import app, db, HasilPrediksi
 from ispu_logic import kalkulasi_ispu_final
 from scheduler import DAFTAR_KOTA
 
 # PENTING: Masukkan API Key aslimu di sini
-API_KEY = "a5053916414d07c5d4b4f88de911e561" 
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 def tarik_sejarah_asli():
     print("Menyambung ke Satelit OpenWeatherMap...")

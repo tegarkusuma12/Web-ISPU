@@ -3,6 +3,9 @@ venv/
 env/
 .venv/
 
+# .env
+.env
+
 # Mengabaikan file cache Python
 __pycache__/
 *.pyc
