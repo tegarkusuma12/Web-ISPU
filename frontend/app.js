@@ -38,13 +38,15 @@ function initMap() {
 // ==========================================
 async function loadDashboard() {
     try {
-        // Panggil endpoint "Sapu Jagat" yang baru kita buat di app.py
         const response = await fetch('http://127.0.0.1:5000/api/ispu/all_besok');
         const result = await response.json();
         allCitiesData = result.data;
 
         populateSearch(allCitiesData);
         updateLeaderboard(allCitiesData);
+        
+        // Panggil fungsi pewarnaan peta di sini!
+        renderPetaWarna(allCitiesData); 
         
     } catch (error) {
         console.error("Gagal memuat data dashboard:", error);
@@ -217,3 +219,60 @@ window.onload = async () => {
     await loadDashboard(); // 2. Tarik 38 kota untuk Leaderboard dan Search
     pilihKota('Surabaya'); // 3. Tampilkan detail Surabaya sebagai default
 };
+
+// ==========================================
+// FITUR BARU: PEWARNAAN PETA CHOROPLETH (LANGKAH 4)
+// ==========================================
+async function renderPetaWarna(dataAI) {
+    try {
+        // Mengambil data GeoJSON public untuk batas Polygon Kabupaten/Kota se-Jatim
+        const response = await fetch('https://raw.githubusercontent.com/ans-frendika/geojson-jawa-timur/master/kabupaten-kota.geojson');
+        const geojson = await response.json();
+
+        L.geoJSON(geojson, {
+            // Fungsi untuk memberi warna wilayah
+            style: function (feature) {
+                let namaWilayahPeta = feature.properties.KABKOT; // Nama wilayah dari file Peta
+                
+                // Cari data AI kita yang namanya cocok dengan nama di Peta
+                let kotaDitemukan = dataAI.find(d => 
+                    d.kota.toUpperCase() === namaWilayahPeta.toUpperCase() || 
+                    d.kota.toUpperCase() === `KABUPATEN ${namaWilayahPeta.toUpperCase()}` ||
+                    `KABUPATEN ${d.kota.toUpperCase()}` === namaWilayahPeta.toUpperCase()
+                );
+
+                // Jika datanya ada, warnai sesuai kategori. Jika tidak, warnai abu-abu.
+                let warnaArea = kotaDitemukan ? getStatusColor(kotaDitemukan.kategori) : '#cccccc';
+
+                return {
+                    fillColor: warnaArea,
+                    weight: 1, // Ketebalan garis batas kota
+                    opacity: 1,
+                    color: 'white', // Warna garis batas kota
+                    fillOpacity: 0.7
+                };
+            },
+            // Fungsi interaksi (Klik dan Hover)
+            onEachFeature: function (feature, layer) {
+                let namaWilayahPeta = feature.properties.KABKOT;
+                let kotaDitemukan = dataAI.find(d => 
+                    d.kota.toUpperCase() === namaWilayahPeta.toUpperCase() || 
+                    d.kota.toUpperCase() === `KABUPATEN ${namaWilayahPeta.toUpperCase()}`
+                );
+                
+                if (kotaDitemukan) {
+                    // Munculkan popup kecil saat di-hover/klik
+                    layer.bindPopup(`<b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})`);
+                    
+                    // Jika wilayah di peta diklik, gulir ke bawah dan tampilkan grafiknya
+                    layer.on('click', () => {
+                        pilihKota(kotaDitemukan.kota);
+                    });
+                }
+            }
+        }).addTo(map);
+
+    } catch(e) {
+        console.error("Gagal memuat GeoJSON Peta:", e);
+    }
+}
