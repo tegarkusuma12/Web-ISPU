@@ -7,7 +7,10 @@ from app import app, db, HasilPrediksi
 from ispu_logic import kalkulasi_ispu_final
 from scheduler import DAFTAR_KOTA
 
-# PENTING: Masukkan API Key aslimu di sini
+# Muat environment variables agar bisa dieksekusi secara mandiri lewat terminal
+load_dotenv()
+
+# PENTING: API Key sekarang diambil dengan aman dari .env
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 def tarik_sejarah_asli():
@@ -16,8 +19,9 @@ def tarik_sejarah_asli():
     
     with app.app_context():
         waktu_sekarang = datetime.now()
-        # Mundur 6 hari ke belakang
-        waktu_awal = int((waktu_sekarang - timedelta(days=30)).timestamp()) 
+        
+        # Diubah menjadi 6 hari agar sinkron dengan teks terminal
+        waktu_awal = int((waktu_sekarang - timedelta(days=6)).timestamp()) 
         waktu_akhir = int(waktu_sekarang.timestamp())
         
         for nama_kota, kordinat in DAFTAR_KOTA.items():
@@ -44,15 +48,22 @@ def tarik_sejarah_asli():
                     if tanggal >= waktu_sekarang.date():
                         continue
                         
-                    avg_pm25 = sum([c['pm2_5'] for c in komponen_list]) / len(komponen_list)
-                    avg_pm10 = sum([c['pm10'] for c in komponen_list]) / len(komponen_list)
-                    avg_co = sum([c['co'] for c in komponen_list]) / len(komponen_list)
-                    avg_no2 = sum([c['no2'] for c in komponen_list]) / len(komponen_list)
-                    avg_o3 = sum([c['o3'] for c in komponen_list]) / len(komponen_list)
+                    # MENCEGAH DUPLIKASI: Cek apakah tanggal & kota ini sudah ada di DB
+                    data_ada = HasilPrediksi.query.filter_by(kota=nama_kota, tanggal_prediksi=tanggal).first()
+                    if data_ada:
+                        continue # Jika sudah ada, lewati agar tidak dobel
+                        
+                    # Menggunakan .get() agar aman jika sewaktu-waktu API tidak mengembalikan gas tertentu
+                    avg_pm25 = sum([c.get('pm2_5', 0) for c in komponen_list]) / len(komponen_list)
+                    avg_pm10 = sum([c.get('pm10', 0) for c in komponen_list]) / len(komponen_list)
+                    avg_co = sum([c.get('co', 0) for c in komponen_list]) / len(komponen_list)
+                    avg_no2 = sum([c.get('no2', 0) for c in komponen_list]) / len(komponen_list)
+                    avg_o3 = sum([c.get('o3', 0) for c in komponen_list]) / len(komponen_list)
+                    avg_so2 = sum([c.get('so2', 0) for c in komponen_list]) / len(komponen_list) # <-- TAMBAHAN SO2
                     
                     dict_polutan = {
                         'PM25': avg_pm25, 'PM10': avg_pm10,
-                        'CO': avg_co, 'NO2': avg_no2, 'O3': avg_o3
+                        'CO': avg_co, 'NO2': avg_no2, 'O3': avg_o3, 'SO2': avg_so2 # <-- TAMBAHAN SO2
                     }
                     
                     # Konversi Rata-rata Polusi menjadi Status ISPU
@@ -62,7 +73,7 @@ def tarik_sejarah_asli():
                     prediksi_baru = HasilPrediksi(
                         tanggal_prediksi=tanggal,
                         kota=nama_kota,
-                        pm25=avg_pm25, pm10=avg_pm10, co=avg_co, no2=avg_no2, o3=avg_o3,
+                        pm25=avg_pm25, pm10=avg_pm10, co=avg_co, no2=avg_no2, o3=avg_o3, so2=avg_so2, # <-- TAMBAHAN SO2
                         nilai_ispu=hasil_ispu['nilai_ispu'],
                         kategori=hasil_ispu['kategori'],
                         parameter_kritis=hasil_ispu['parameter_kritis']
