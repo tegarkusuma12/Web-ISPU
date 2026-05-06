@@ -182,7 +182,7 @@ if __name__ == '__main__':
     print("Scheduler ISPU Jatim mulai berjalan...")
     
     # [OPSIONAL] Panggil manual sekali saat file di-run untuk menguji API
-    # tarik_data_per_jam() 
-    # eksekusi_prediksi_harian()
+    tarik_data_per_jam() 
+    eksekusi_prediksi_harian()
     
     scheduler.start()
