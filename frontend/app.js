@@ -119,10 +119,21 @@ function updateLeaderboard(data) {
 }
 
 // ==========================================
-// FUNGSI JEMBATAN (Menggantikan fungsi Tab 10 Kota)
+// FUNGSI JEMBATAN (Pembaruan: Instant Update Kartu)
 // ==========================================
 function pilihKota(kota) {
     document.getElementById('selectedCityTitle').innerText = `Detail Wilayah: ${kota}`;
+    
+    // 🌟 UPDATE INSTAN: Ambil langsung dari memori tanpa nunggu loading API
+    let dataKotaIni = allCitiesData.find(d => d.kota === kota);
+    if(dataKotaIni) {
+        document.getElementById('ispuValue').innerText = dataKotaIni.nilai_ispu || "--";
+        document.getElementById('ispuStatus').innerText = dataKotaIni.kategori || "Menunggu Data";
+        document.getElementById('kritisValue').innerText = dataKotaIni.parameter_kritis || "--";
+        document.getElementById('statusCard').style.backgroundColor = getStatusColor(dataKotaIni.kategori);
+    }
+
+    // Panggil fetch HANYA untuk menggambar grafik di bawahnya
     fetchIspuData(kota, filterHariAktif);
     
     // Otomatis menggulir layar ke bagian detail
@@ -130,7 +141,7 @@ function pilihKota(kota) {
 }
 
 // ==========================================
-// FUNGSI LAMA: DETAIL KOTA & GRAFIK (DISEMPURNAKAN)
+// FUNGSI LAMA: DETAIL KOTA & GRAFIK (Pembaruan: Anti-Abu-abu)
 // ==========================================
 async function fetchIspuData(kota, jumlahHari) {
     try {
@@ -138,26 +149,17 @@ async function fetchIspuData(kota, jumlahHari) {
         filterHariAktif = jumlahHari;
 
         const response = await fetch(`http://127.0.0.1:5000/api/ispu/${kota}?days=${jumlahHari}`);
-        if (!response.ok) throw new Error("Data belum tersedia.");
+        if (!response.ok) throw new Error("Data grafik belum tersedia.");
 
         const result = await response.json();
-        const prediksiBesok = result.prediksi_besok;
         const dataGrafik = result.grafik;
 
-        // Update Kartu Biru Detail
-        document.getElementById('ispuValue').innerText = prediksiBesok.nilai_ispu || "--";
-        document.getElementById('ispuStatus').innerText = prediksiBesok.kategori || "Menunggu Data";
-        document.getElementById('kritisValue').innerText = prediksiBesok.parameter_kritis || "--";
-        document.getElementById('statusCard').style.backgroundColor = getStatusColor(prediksiBesok.kategori);
-
+        // Cukup perbarui grafiknya saja, kartu detail sudah diurus oleh fungsi pilihKota()
         updateChart(dataGrafik, kota);
 
     } catch (error) {
-        console.error("Gagal menarik detail data:", error);
-        document.getElementById('ispuValue').innerText = "--";
-        document.getElementById('ispuStatus').innerText = "Data Belum Tersedia";
-        document.getElementById('kritisValue').innerText = "--";
-        document.getElementById('statusCard').style.backgroundColor = '#6c757d';
+        console.error("Gagal menarik detail data grafik:", error);
+        // HANYA hancurkan grafik jika error, KARTU STATUS JANGAN DIUBAH ABU-ABU
         if(myChart) myChart.destroy();
     }
 }
@@ -225,46 +227,49 @@ window.onload = async () => {
 // ==========================================
 async function renderPetaWarna(dataAI) {
     try {
-        // Mengambil data GeoJSON public untuk batas Polygon Kabupaten/Kota se-Jatim
         const response = await fetch('https://raw.githubusercontent.com/ans-frendika/geojson-jawa-timur/master/kabupaten-kota.geojson');
         const geojson = await response.json();
 
         L.geoJSON(geojson, {
-            // Fungsi untuk memberi warna wilayah
             style: function (feature) {
-                let namaWilayahPeta = feature.properties.KABKOT; // Nama wilayah dari file Peta
+                // Berburu key nama wilayah (berbeda-beda tiap file GeoJSON)
+                let props = feature.properties;
+                let namaWilayahPeta = (props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "").toUpperCase();
                 
-                // Cari data AI kita yang namanya cocok dengan nama di Peta
-                let kotaDitemukan = dataAI.find(d => 
-                    d.kota.toUpperCase() === namaWilayahPeta.toUpperCase() || 
-                    d.kota.toUpperCase() === `KABUPATEN ${namaWilayahPeta.toUpperCase()}` ||
-                    `KABUPATEN ${d.kota.toUpperCase()}` === namaWilayahPeta.toUpperCase()
-                );
+                // Pencocokan Ekstrem (Brute-Force Match)
+                let kotaDitemukan = dataAI.find(d => {
+                    let n = d.kota.toUpperCase();
+                    return n === namaWilayahPeta || 
+                           `KOTA ${n}` === namaWilayahPeta || 
+                           `KABUPATEN ${n}` === namaWilayahPeta ||
+                           n === `KOTA ${namaWilayahPeta}` ||
+                           n === `KABUPATEN ${namaWilayahPeta}`;
+                });
 
-                // Jika datanya ada, warnai sesuai kategori. Jika tidak, warnai abu-abu.
+                // Jika ketemu warnai, jika luput warnai abu-abu
                 let warnaArea = kotaDitemukan ? getStatusColor(kotaDitemukan.kategori) : '#cccccc';
 
                 return {
                     fillColor: warnaArea,
-                    weight: 1, // Ketebalan garis batas kota
+                    weight: 1, 
                     opacity: 1,
-                    color: 'white', // Warna garis batas kota
-                    fillOpacity: 0.7
+                    color: 'white', 
+                    fillOpacity: 0.8 // Opacity dinaikkan sedikit agar warna lebih cerah
                 };
             },
-            // Fungsi interaksi (Klik dan Hover)
             onEachFeature: function (feature, layer) {
-                let namaWilayahPeta = feature.properties.KABKOT;
-                let kotaDitemukan = dataAI.find(d => 
-                    d.kota.toUpperCase() === namaWilayahPeta.toUpperCase() || 
-                    d.kota.toUpperCase() === `KABUPATEN ${namaWilayahPeta.toUpperCase()}`
-                );
+                let props = feature.properties;
+                let namaWilayahPeta = (props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "").toUpperCase();
+                
+                let kotaDitemukan = dataAI.find(d => {
+                    let n = d.kota.toUpperCase();
+                    return n === namaWilayahPeta || 
+                           `KOTA ${n}` === namaWilayahPeta || 
+                           `KABUPATEN ${n}` === namaWilayahPeta;
+                });
                 
                 if (kotaDitemukan) {
-                    // Munculkan popup kecil saat di-hover/klik
                     layer.bindPopup(`<b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})`);
-                    
-                    // Jika wilayah di peta diklik, gulir ke bawah dan tampilkan grafiknya
                     layer.on('click', () => {
                         pilihKota(kotaDitemukan.kota);
                     });
