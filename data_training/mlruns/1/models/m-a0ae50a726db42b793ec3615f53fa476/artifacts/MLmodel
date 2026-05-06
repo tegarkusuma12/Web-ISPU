@@ -1,0 +1,23 @@
+artifact_path: file:///d:/Career/Semester 4/Teknologi Web Service/Proyek ISPU/data_training/mlruns/1/models/m-a0ae50a726db42b793ec3615f53fa476/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.5
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.3.2
+    skops_trusted_types: null
+mlflow_version: 3.12.0
+model_id: m-a0ae50a726db42b793ec3615f53fa476
+model_size_bytes: 2022627
+model_uuid: m-a0ae50a726db42b793ec3615f53fa476
+prompts: null
+run_id: b71b5dab85e7456e80cbbc40e3b4b1aa
+utc_time_created: '2026-05-06 04:29:18.443751'
