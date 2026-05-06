@@ -19,7 +19,7 @@ POLUTAN_LIMITS = {
     'CO':   [[0, 4000], [4001, 8000], [8001, 15000], [15001, 30000], [30001, 45000]],
     'O3':   [[0, 120], [121, 235], [236, 400], [401, 800], [801, 1000]],
     'NO2':  [[0, 80], [81, 200], [201, 1130], [1131, 2260], [2261, 3000]],
-    'SO2':  [[0, 52], [53, 180], [181, 400], [401, 800], [801, 1000]] # Asumsi batas standar, mohon dicek kembali dengan dosen/panduan
+    'SO2':  [[0, 52], [53, 180], [181, 400], [401, 800], [801, 1200]] # Asumsi batas standar, mohon dicek kembali dengan dosen/panduan
 }
 
 def hitung_ispu_per_polutan(nama_polutan, konsentrasi):
