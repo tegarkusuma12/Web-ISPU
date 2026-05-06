@@ -119,18 +119,22 @@ function updateLeaderboard(data) {
 }
 
 // ==========================================
-// FUNGSI JEMBATAN (Pembaruan: Instant Update Kartu)
+// FUNGSI JEMBATAN (Instant Update Kartu)
 // ==========================================
 function pilihKota(kota) {
     document.getElementById('selectedCityTitle').innerText = `Detail Wilayah: ${kota}`;
     
-    // 🌟 UPDATE INSTAN: Ambil langsung dari memori tanpa nunggu loading API
+    // 🌟 Cari data di memori secara eksak
     let dataKotaIni = allCitiesData.find(d => d.kota === kota);
+    
     if(dataKotaIni) {
+        // Update kartu status seketika tanpa loading!
         document.getElementById('ispuValue').innerText = dataKotaIni.nilai_ispu || "--";
         document.getElementById('ispuStatus').innerText = dataKotaIni.kategori || "Menunggu Data";
         document.getElementById('kritisValue').innerText = dataKotaIni.parameter_kritis || "--";
         document.getElementById('statusCard').style.backgroundColor = getStatusColor(dataKotaIni.kategori);
+    } else {
+        console.warn("Data tidak ditemukan di memori untuk:", kota);
     }
 
     // Panggil fetch HANYA untuk menggambar grafik di bawahnya
@@ -141,26 +145,90 @@ function pilihKota(kota) {
 }
 
 // ==========================================
-// FUNGSI LAMA: DETAIL KOTA & GRAFIK (Pembaruan: Anti-Abu-abu)
+// FUNGSI API GRAFIK (Anti Abu-Abu)
 // ==========================================
 async function fetchIspuData(kota, jumlahHari) {
     try {
         kotaAktif = kota;
         filterHariAktif = jumlahHari;
 
-        const response = await fetch(`http://127.0.0.1:5000/api/ispu/${kota}?days=${jumlahHari}`);
+        // Penting: Pastikan spasi pada nama kota seperti "Kota Surabaya" di-encode dengan benar ke backend
+        const urlSafeKota = encodeURIComponent(kota);
+        const response = await fetch(`http://127.0.0.1:5000/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
+        
         if (!response.ok) throw new Error("Data grafik belum tersedia.");
 
         const result = await response.json();
-        const dataGrafik = result.grafik;
-
-        // Cukup perbarui grafiknya saja, kartu detail sudah diurus oleh fungsi pilihKota()
-        updateChart(dataGrafik, kota);
+        
+        // FUNGSI INI KINI HANYA MENGUPDATE GRAFIK, TIDAK MENYENTUH KARTU DETAIL SAMA SEKALI
+        updateChart(result.grafik, kota);
 
     } catch (error) {
-        console.error("Gagal menarik detail data grafik:", error);
-        // HANYA hancurkan grafik jika error, KARTU STATUS JANGAN DIUBAH ABU-ABU
+        console.error("Gagal menarik grafik:", error);
         if(myChart) myChart.destroy();
+    }
+}
+
+// ==========================================
+// PEMBERSIH NAMA (Helper Function)
+// ==========================================
+function ekstrakNamaInti(nama) {
+    if (!nama) return "";
+    // Ubah ke huruf besar, lalu buang kata awalan agar tersisa nama intinya saja
+    return nama.toUpperCase()
+        .replace('KOTA ', '')
+        .replace('KABUPATEN ', '')
+        .replace('KAB. ', '')
+        .trim();
+}
+
+// ==========================================
+// FITUR PETA CHOROPLETH (Pencocokan Nama Inti)
+// ==========================================
+async function renderPetaWarna(dataAI) {
+    try {
+        const response = await fetch('https://raw.githubusercontent.com/ans-frendika/geojson-jawa-timur/master/kabupaten-kota.geojson');
+        const geojson = await response.json();
+
+        L.geoJSON(geojson, {
+            style: function (feature) {
+                let props = feature.properties;
+                // Ambil nama dari file GeoJSON dan bersihkan
+                let namaPetaMentah = props.KABKOT || props.WADMKK || props.NAME_2 || "";
+                let namaPetaBersih = ekstrakNamaInti(namaPetaMentah);
+                
+                // Cari kecocokan dengan data datasetmu yang sudah dibersihkan juga
+                let kotaDitemukan = dataAI.find(d => ekstrakNamaInti(d.kota) === namaPetaBersih);
+
+                // Jika ketemu warnai sesuai kategori, jika tidak warnai abu-abu
+                let warnaArea = kotaDitemukan ? getStatusColor(kotaDitemukan.kategori) : '#cccccc';
+
+                return {
+                    fillColor: warnaArea,
+                    weight: 1.5, // Garis batas sedikit ditebalkan
+                    opacity: 1,
+                    color: 'white', 
+                    fillOpacity: 0.8
+                };
+            },
+            onEachFeature: function (feature, layer) {
+                let props = feature.properties;
+                let namaPetaBersih = ekstrakNamaInti(props.KABKOT || props.WADMKK || props.NAME_2 || "");
+                
+                let kotaDitemukan = dataAI.find(d => ekstrakNamaInti(d.kota) === namaPetaBersih);
+                
+                if (kotaDitemukan) {
+                    // Gunakan nama asli datasetmu (cth: "Kota Surabaya") untuk popup
+                    layer.bindPopup(`<div class="text-center"><b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})</div>`);
+                    layer.on('click', () => {
+                        pilihKota(kotaDitemukan.kota); // Pass nama asli dataset ke fungsi pilihKota
+                    });
+                }
+            }
+        }).addTo(map);
+
+    } catch(e) {
+        console.error("Gagal memuat GeoJSON Peta:", e);
     }
 }
 
@@ -221,63 +289,3 @@ window.onload = async () => {
     await loadDashboard(); // 2. Tarik 38 kota untuk Leaderboard dan Search
     pilihKota('Surabaya'); // 3. Tampilkan detail Surabaya sebagai default
 };
-
-// ==========================================
-// FITUR BARU: PEWARNAAN PETA CHOROPLETH (LANGKAH 4)
-// ==========================================
-async function renderPetaWarna(dataAI) {
-    try {
-        const response = await fetch('https://raw.githubusercontent.com/ans-frendika/geojson-jawa-timur/master/kabupaten-kota.geojson');
-        const geojson = await response.json();
-
-        L.geoJSON(geojson, {
-            style: function (feature) {
-                // Berburu key nama wilayah (berbeda-beda tiap file GeoJSON)
-                let props = feature.properties;
-                let namaWilayahPeta = (props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "").toUpperCase();
-                
-                // Pencocokan Ekstrem (Brute-Force Match)
-                let kotaDitemukan = dataAI.find(d => {
-                    let n = d.kota.toUpperCase();
-                    return n === namaWilayahPeta || 
-                           `KOTA ${n}` === namaWilayahPeta || 
-                           `KABUPATEN ${n}` === namaWilayahPeta ||
-                           n === `KOTA ${namaWilayahPeta}` ||
-                           n === `KABUPATEN ${namaWilayahPeta}`;
-                });
-
-                // Jika ketemu warnai, jika luput warnai abu-abu
-                let warnaArea = kotaDitemukan ? getStatusColor(kotaDitemukan.kategori) : '#cccccc';
-
-                return {
-                    fillColor: warnaArea,
-                    weight: 1, 
-                    opacity: 1,
-                    color: 'white', 
-                    fillOpacity: 0.8 // Opacity dinaikkan sedikit agar warna lebih cerah
-                };
-            },
-            onEachFeature: function (feature, layer) {
-                let props = feature.properties;
-                let namaWilayahPeta = (props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "").toUpperCase();
-                
-                let kotaDitemukan = dataAI.find(d => {
-                    let n = d.kota.toUpperCase();
-                    return n === namaWilayahPeta || 
-                           `KOTA ${n}` === namaWilayahPeta || 
-                           `KABUPATEN ${n}` === namaWilayahPeta;
-                });
-                
-                if (kotaDitemukan) {
-                    layer.bindPopup(`<b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})`);
-                    layer.on('click', () => {
-                        pilihKota(kotaDitemukan.kota);
-                    });
-                }
-            }
-        }).addTo(map);
-
-    } catch(e) {
-        console.error("Gagal memuat GeoJSON Peta:", e);
-    }
-}
