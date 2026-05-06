@@ -22,7 +22,7 @@ def tarik_sejarah_asli():
         waktu_akhir = int(waktu_sekarang.timestamp())
         
         for nama_kota, kordinat in DAFTAR_KOTA.items():
-            print(f"[*] Mengunduh riwayat kota {nama_kota}...")
+            print(f"[*] Mengunduh riwayat {nama_kota}...")
             url = f"http://api.openweathermap.org/data/2.5/air_pollution/history?lat={kordinat['lat']}&lon={kordinat['lon']}&start={waktu_awal}&end={waktu_akhir}&appid={API_KEY}"
             
             try:

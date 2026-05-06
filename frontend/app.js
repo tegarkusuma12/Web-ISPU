@@ -172,15 +172,12 @@ async function fetchIspuData(kota, jumlahHari) {
 // ==========================================
 function sanitizeName(name) {
     if (!name) return "";
-    // 1. Ubah ke huruf kapital
-    // 2. Buang kata imbuhan
-    // 3. Regex /[^A-Z]/g akan menghapus SEMUA spasi, titik, koma! 
-    // Jadi "Kota Surabaya" akan menjadi "SURABAYA" murni.
     return String(name).toUpperCase()
         .replace(/KABUPATEN/g, '')
         .replace(/KOTA/g, '')
         .replace(/KAB\./g, '')
-        .replace(/[^A-Z]/g, ''); 
+        .replace(/[^A-Z]/g, '') // Menghapus spasi dan simbol non-huruf
+        .trim();
 }
 
 // ==========================================
@@ -188,23 +185,22 @@ function sanitizeName(name) {
 // ==========================================
 async function renderPetaWarna(dataAI) {
     try {
-        // Tembak langsung ke file lokal!
         const response = await fetch('jatim.json');
-        
-        if (!response.ok) {
-            throw new Error(`Gagal memuat Peta lokal. Status: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error("File jatim.json tidak ditemukan");
         const geojson = await response.json();
 
         L.geoJSON(geojson, {
             style: function (feature) {
-                let props = feature.properties;
-                let namaPetaMentah = props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "";
+                // 1. Ambil nama dari properti 'kabkot' di JSON Anda
+                let namaPetaMentah = feature.properties.kabkot || ""; 
                 
+                // 2. Gunakan pembersih nama untuk mencocokkan
                 let namaPetaBersih = sanitizeName(namaPetaMentah);
+                
+                // 3. Cari kecocokan di data AI
                 let kotaDitemukan = dataAI.find(d => sanitizeName(d.kota) === namaPetaBersih);
 
+                // 4. Tentukan warna (Default abu-abu jika tidak cocok)
                 let warnaArea = kotaDitemukan ? getStatusColor(kotaDitemukan.kategori) : '#cccccc';
 
                 return {
@@ -216,23 +212,19 @@ async function renderPetaWarna(dataAI) {
                 };
             },
             onEachFeature: function (feature, layer) {
-                let props = feature.properties;
-                let namaPetaBersih = sanitizeName(props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "");
-                
+                let namaPetaMentah = feature.properties.kabkot || "";
+                let namaPetaBersih = sanitizeName(namaPetaMentah);
                 let kotaDitemukan = dataAI.find(d => sanitizeName(d.kota) === namaPetaBersih);
                 
                 if (kotaDitemukan) {
-                    layer.bindPopup(`<div class="text-center"><b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})</div>`);
-                    layer.on('click', () => {
-                        pilihKota(kotaDitemukan.kota);
-                    });
+                    layer.bindPopup(`<b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})`);
+                    layer.on('click', () => pilihKota(kotaDitemukan.kota));
                 }
             }
         }).addTo(map);
 
     } catch(e) {
-        console.error("🚨 Sistem Peta Dimatikan Sementara:", e.message);
-        document.getElementById('map').innerHTML = "<div class='text-center p-5 text-muted'><b>Peta Gagal Dimuat.</b><br>Pastikan file jatim.geojson ada di folder frontend.</div>";
+        console.error("Gagal sinkronisasi warna peta:", e);
     }
 }
 
