@@ -188,16 +188,20 @@ function sanitizeName(name) {
 // ==========================================
 async function renderPetaWarna(dataAI) {
     try {
-        const response = await fetch('https://raw.githubusercontent.com/ans-frendika/geojson-jawa-timur/master/kabupaten-kota.geojson');
+        // Tembak langsung ke file lokal!
+        const response = await fetch('jatim.geojson');
+        
+        if (!response.ok) {
+            throw new Error(`Gagal memuat Peta lokal. Status: ${response.status}`);
+        }
+
         const geojson = await response.json();
 
         L.geoJSON(geojson, {
             style: function (feature) {
                 let props = feature.properties;
-                // Berburu key nama wilayah di file GeoJSON
                 let namaPetaMentah = props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "";
                 
-                // Gunakan pembersih sapu jagat
                 let namaPetaBersih = sanitizeName(namaPetaMentah);
                 let kotaDitemukan = dataAI.find(d => sanitizeName(d.kota) === namaPetaBersih);
 
@@ -227,7 +231,8 @@ async function renderPetaWarna(dataAI) {
         }).addTo(map);
 
     } catch(e) {
-        console.error("Gagal memuat GeoJSON Peta:", e);
+        console.error("🚨 Sistem Peta Dimatikan Sementara:", e.message);
+        document.getElementById('map').innerHTML = "<div class='text-center p-5 text-muted'><b>Peta Gagal Dimuat.</b><br>Pastikan file jatim.geojson ada di folder frontend.</div>";
     }
 }
 
