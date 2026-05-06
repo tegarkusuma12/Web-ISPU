@@ -1,17 +1,24 @@
 # backend/app.py
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
-import joblib
 import requests
+from dotenv import load_dotenv
 from ispu_logic import kalkulasi_ispu_final
+
+# Memuat variabel dari file .env untuk keamanan API Key dan kredensial DB
+load_dotenv() 
 
 app = Flask(__name__)
 CORS(app) # Mengizinkan akses dari antarmuka frontend HTML
 
-# Konfigurasi Database PostgreSQL (Menembak ke Docker di port 5432)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://ispu_admin:rahasia_ispu@localhost:5433/ispu_jatim_db'
+# Konfigurasi Database PostgreSQL (Siap untuk integrasi Supabase via ENV, fallback ke Docker lokal)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'DATABASE_URL', 
+    'postgresql://ispu_admin:rahasia_ispu@localhost:5433/ispu_jatim_db'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -30,6 +37,7 @@ class RiwayatCuaca(db.Model):
     co = db.Column(db.Float)
     no2 = db.Column(db.Float)
     o3 = db.Column(db.Float)
+    so2 = db.Column(db.Float, default=0.0) # <--- TAMBAHAN SO2
 
 class HasilPrediksi(db.Model):
     """Menyimpan hasil prediksi harian yang sudah matang + Status ISPU"""
@@ -42,6 +50,7 @@ class HasilPrediksi(db.Model):
     co = db.Column(db.Float)
     no2 = db.Column(db.Float)
     o3 = db.Column(db.Float)
+    so2 = db.Column(db.Float, default=0.0) # <--- TAMBAHAN SO2
     nilai_ispu = db.Column(db.Integer)
     kategori = db.Column(db.String(50))
     parameter_kritis = db.Column(db.String(50))
@@ -84,8 +93,8 @@ def get_ispu_kota(nama_kota):
 
     if filter_tipe == '24jam':
         # --- JALUR BYPASS (LIVE SATELIT) ---
-        # PENTING: Ganti tulisan di bawah dengan API Key OpenWeatherMap milikmu!
-        API_KEY = "a5053916414d07c5d4b4f88de911e561" 
+        # Mengambil API key dari .env agar aman, fallback ke kunci default jika kosong
+        API_KEY = os.getenv("OPENWEATHER_API_KEY") 
         kordinat = DAFTAR_KOTA.get(nama_kota)
         
         if kordinat:
@@ -101,8 +110,15 @@ def get_ispu_kota(nama_kota):
                     jam = datetime.fromtimestamp(item['dt']).strftime("%H:00")
                     c = item['components']
                     
-                    # Hitung ulang ISPU dari data mentah
-                    dict_polutan = {'PM25': c['pm2_5'], 'PM10': c['pm10'], 'CO': c['co'], 'NO2': c['no2'], 'O3': c['o3']}
+                    # Hitung ulang ISPU dari data mentah dengan formasi polutan yang baru
+                    dict_polutan = {
+                        'PM25': c.get('pm2_5', 0), 
+                        'PM10': c.get('pm10', 0), 
+                        'CO': c.get('co', 0), 
+                        'NO2': c.get('no2', 0), 
+                        'O3': c.get('o3', 0),
+                        'SO2': c.get('so2', 0) # <--- TAMBAHAN SO2
+                    }
                     ispu = kalkulasi_ispu_final(dict_polutan)
                     
                     hasil_grafik.append({
