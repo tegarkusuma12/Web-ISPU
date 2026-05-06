@@ -119,48 +119,46 @@ function updateLeaderboard(data) {
 }
 
 // ==========================================
-// FUNGSI JEMBATAN (Instant Update Kartu)
+// FUNGSI JEMBATAN (Instant Update dengan Efek Kedip)
 // ==========================================
 function pilihKota(kota) {
     document.getElementById('selectedCityTitle').innerText = `Detail Wilayah: ${kota}`;
     
-    // 🌟 Cari data di memori secara eksak
-    let dataKotaIni = allCitiesData.find(d => d.kota === kota);
+    // Trik UI: Beri efek kedip/loading sekejap agar kamu tahu sistem merespons
+    // meskipun angka kotanya sama-sama 69
+    document.getElementById('ispuValue').innerText = "...";
+    document.getElementById('ispuStatus').innerText = "...";
     
-    if(dataKotaIni) {
-        // Update kartu status seketika tanpa loading!
-        document.getElementById('ispuValue').innerText = dataKotaIni.nilai_ispu || "--";
-        document.getElementById('ispuStatus').innerText = dataKotaIni.kategori || "Menunggu Data";
-        document.getElementById('kritisValue').innerText = dataKotaIni.parameter_kritis || "--";
-        document.getElementById('statusCard').style.backgroundColor = getStatusColor(dataKotaIni.kategori);
-    } else {
-        console.warn("Data tidak ditemukan di memori untuk:", kota);
-    }
+    setTimeout(() => {
+        let dataKotaIni = allCitiesData.find(d => d.kota === kota);
+        
+        if(dataKotaIni) {
+            document.getElementById('ispuValue').innerText = dataKotaIni.nilai_ispu || "--";
+            document.getElementById('ispuStatus').innerText = dataKotaIni.kategori || "Menunggu Data";
+            document.getElementById('kritisValue').innerText = dataKotaIni.parameter_kritis || "--";
+            document.getElementById('statusCard').style.backgroundColor = getStatusColor(dataKotaIni.kategori);
+        }
+    }, 150); // Jeda 150 milidetik sebelum menampilkan angka
 
-    // Panggil fetch HANYA untuk menggambar grafik di bawahnya
     fetchIspuData(kota, filterHariAktif);
-    
-    // Otomatis menggulir layar ke bagian detail
     document.getElementById('detail-view').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ==========================================
-// FUNGSI API GRAFIK (Anti Abu-Abu)
+// FUNGSI API GRAFIK (Tetap Dipertahankan)
 // ==========================================
 async function fetchIspuData(kota, jumlahHari) {
     try {
         kotaAktif = kota;
         filterHariAktif = jumlahHari;
-
-        // Penting: Pastikan spasi pada nama kota seperti "Kota Surabaya" di-encode dengan benar ke backend
+        
+        // Encode nama agar spasi di "Kota Surabaya" aman dikirim ke backend
         const urlSafeKota = encodeURIComponent(kota);
         const response = await fetch(`http://127.0.0.1:5000/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
         
         if (!response.ok) throw new Error("Data grafik belum tersedia.");
 
         const result = await response.json();
-        
-        // FUNGSI INI KINI HANYA MENGUPDATE GRAFIK, TIDAK MENYENTUH KARTU DETAIL SAMA SEKALI
         updateChart(result.grafik, kota);
 
     } catch (error) {
@@ -170,20 +168,23 @@ async function fetchIspuData(kota, jumlahHari) {
 }
 
 // ==========================================
-// PEMBERSIH NAMA (Helper Function)
+// PEMBERSIH NAMA EKSTREM (Sapu Jagat)
 // ==========================================
-function ekstrakNamaInti(nama) {
-    if (!nama) return "";
-    // Ubah ke huruf besar, lalu buang kata awalan agar tersisa nama intinya saja
-    return nama.toUpperCase()
-        .replace('KOTA ', '')
-        .replace('KABUPATEN ', '')
-        .replace('KAB. ', '')
-        .trim();
+function sanitizeName(name) {
+    if (!name) return "";
+    // 1. Ubah ke huruf kapital
+    // 2. Buang kata imbuhan
+    // 3. Regex /[^A-Z]/g akan menghapus SEMUA spasi, titik, koma! 
+    // Jadi "Kota Surabaya" akan menjadi "SURABAYA" murni.
+    return String(name).toUpperCase()
+        .replace(/KABUPATEN/g, '')
+        .replace(/KOTA/g, '')
+        .replace(/KAB\./g, '')
+        .replace(/[^A-Z]/g, ''); 
 }
 
 // ==========================================
-// FITUR PETA CHOROPLETH (Pencocokan Nama Inti)
+// FITUR PETA CHOROPLETH (Pencocokan Ekstrem)
 // ==========================================
 async function renderPetaWarna(dataAI) {
     try {
@@ -193,19 +194,18 @@ async function renderPetaWarna(dataAI) {
         L.geoJSON(geojson, {
             style: function (feature) {
                 let props = feature.properties;
-                // Ambil nama dari file GeoJSON dan bersihkan
-                let namaPetaMentah = props.KABKOT || props.WADMKK || props.NAME_2 || "";
-                let namaPetaBersih = ekstrakNamaInti(namaPetaMentah);
+                // Berburu key nama wilayah di file GeoJSON
+                let namaPetaMentah = props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "";
                 
-                // Cari kecocokan dengan data datasetmu yang sudah dibersihkan juga
-                let kotaDitemukan = dataAI.find(d => ekstrakNamaInti(d.kota) === namaPetaBersih);
+                // Gunakan pembersih sapu jagat
+                let namaPetaBersih = sanitizeName(namaPetaMentah);
+                let kotaDitemukan = dataAI.find(d => sanitizeName(d.kota) === namaPetaBersih);
 
-                // Jika ketemu warnai sesuai kategori, jika tidak warnai abu-abu
                 let warnaArea = kotaDitemukan ? getStatusColor(kotaDitemukan.kategori) : '#cccccc';
 
                 return {
                     fillColor: warnaArea,
-                    weight: 1.5, // Garis batas sedikit ditebalkan
+                    weight: 1.5,
                     opacity: 1,
                     color: 'white', 
                     fillOpacity: 0.8
@@ -213,15 +213,14 @@ async function renderPetaWarna(dataAI) {
             },
             onEachFeature: function (feature, layer) {
                 let props = feature.properties;
-                let namaPetaBersih = ekstrakNamaInti(props.KABKOT || props.WADMKK || props.NAME_2 || "");
+                let namaPetaBersih = sanitizeName(props.KABKOT || props.WADMKK || props.NAME_2 || props.kabupaten || props.name || "");
                 
-                let kotaDitemukan = dataAI.find(d => ekstrakNamaInti(d.kota) === namaPetaBersih);
+                let kotaDitemukan = dataAI.find(d => sanitizeName(d.kota) === namaPetaBersih);
                 
                 if (kotaDitemukan) {
-                    // Gunakan nama asli datasetmu (cth: "Kota Surabaya") untuk popup
                     layer.bindPopup(`<div class="text-center"><b>${kotaDitemukan.kota}</b><br>ISPU: ${kotaDitemukan.nilai_ispu} (${kotaDitemukan.kategori})</div>`);
                     layer.on('click', () => {
-                        pilihKota(kotaDitemukan.kota); // Pass nama asli dataset ke fungsi pilihKota
+                        pilihKota(kotaDitemukan.kota);
                     });
                 }
             }
