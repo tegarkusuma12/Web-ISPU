@@ -189,7 +189,7 @@ function sanitizeName(name) {
 async function renderPetaWarna(dataAI) {
     try {
         // Tembak langsung ke file lokal!
-        const response = await fetch('jatim.geojson');
+        const response = await fetch('jatim.json');
         
         if (!response.ok) {
             throw new Error(`Gagal memuat Peta lokal. Status: ${response.status}`);
