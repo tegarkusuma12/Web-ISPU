@@ -66,6 +66,37 @@ with app.app_context():
 def cek_status():
     return jsonify({"pesan": "Server Backend ISPU Jatim Aktif!"}), 200
 
+@app.route('/api/ispu/all_besok', methods=['GET'])
+def get_all_ispu_besok():
+    """
+    Endpoint Sapu Jagat: 
+    Menarik prediksi hari esok untuk seluruh 38 kota/kabupaten di Jawa Timur.
+    Sangat efisien untuk merender Peta Leaflet dan Leaderboard.
+    """
+    besok = datetime.now().date() + timedelta(days=1)
+    
+    # Tarik semua data dari database yang tanggalnya adalah besok
+    data_prediksi = HasilPrediksi.query.filter_by(tanggal_prediksi=besok).all()
+    
+    hasil = []
+    for row in data_prediksi:
+        hasil.append({
+            "kota": row.kota,
+            "nilai_ispu": row.nilai_ispu,
+            "kategori": row.kategori,
+            "parameter_kritis": row.parameter_kritis,
+            # Kita sertakan gasnya juga siapa tahu nanti butuh untuk tooltip peta
+            "pm25": row.pm25, "pm10": row.pm10, 
+            "co": row.co, "no2": row.no2, 
+            "o3": row.o3, "so2": row.so2
+        })
+        
+    return jsonify({
+        "tanggal_prediksi": str(besok),
+        "total_kota": len(hasil),
+        "data": hasil
+    }), 200
+
 @app.route('/api/ispu/<nama_kota>')
 def get_ispu_kota(nama_kota):
     from scheduler import DAFTAR_KOTA
