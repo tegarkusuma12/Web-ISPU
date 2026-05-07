@@ -1,0 +1,14 @@
+artifact_uri: file:///d:/Career/Semester 4/Teknologi Web Service/Proyek ISPU/data_training/mlruns/782664500225643916/18e70c72b7ed42d097d65968a270b6b2/artifacts
+end_time: 1778161134791
+entry_point_name: ''
+experiment_id: '782664500225643916'
+lifecycle_stage: active
+run_id: 18e70c72b7ed42d097d65968a270b6b2
+run_name: Baseline_KNeighbors
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1778161121703
+status: 3
+tags: []
+user_id: THIN 15

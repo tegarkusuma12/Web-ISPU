@@ -1,0 +1,14 @@
+artifact_uri: file:///d:/Career/Semester 4/Teknologi Web Service/Proyek ISPU/data_training/mlruns/782664500225643916/e1cf34ca17984c49ad173fdd46c2aeec/artifacts
+end_time: 1778161388647
+entry_point_name: ''
+experiment_id: '782664500225643916'
+lifecycle_stage: active
+run_id: e1cf34ca17984c49ad173fdd46c2aeec
+run_name: Spesialis_XGBoost_SO2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1778161299617
+status: 3
+tags: []
+user_id: THIN 15

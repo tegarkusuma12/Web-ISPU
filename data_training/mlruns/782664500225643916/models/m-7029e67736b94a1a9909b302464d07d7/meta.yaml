@@ -1,0 +1,10 @@
+artifact_location: file:///d:/Career/Semester 4/Teknologi Web Service/Proyek ISPU/data_training/mlruns/782664500225643916/models/m-7029e67736b94a1a9909b302464d07d7/artifacts
+creation_timestamp: 1778161108740
+experiment_id: '782664500225643916'
+last_updated_timestamp: 1778161121631
+model_id: m-7029e67736b94a1a9909b302464d07d7
+model_type: null
+name: Baseline_RandomForest
+source_run_id: 350bd3a51eef42178a67668b59b10894
+status: 2
+status_message: null

@@ -1,0 +1,10 @@
+artifact_location: file:///d:/Career/Semester 4/Teknologi Web Service/Proyek ISPU/data_training/mlruns/782664500225643916/models/m-efd46e961455457e968601ebbcf1b428/artifacts
+creation_timestamp: 1778161291052
+experiment_id: '782664500225643916'
+last_updated_timestamp: 1778161299557
+model_id: m-efd46e961455457e968601ebbcf1b428
+model_type: null
+name: Model_PM10
+source_run_id: 52550a6eed5c4883a3669c9d164ea9ce
+status: 2
+status_message: null

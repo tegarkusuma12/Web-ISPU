@@ -1,0 +1,14 @@
+artifact_uri: file:///d:/Career/Semester 4/Teknologi Web Service/Proyek ISPU/data_training/mlruns/782664500225643916/3ddc9bdde5e94f1d926d448de80046d8/artifacts
+end_time: 1778160943875
+entry_point_name: ''
+experiment_id: '782664500225643916'
+lifecycle_stage: active
+run_id: 3ddc9bdde5e94f1d926d448de80046d8
+run_name: Baseline_LinearRegression
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1778160929925
+status: 3
+tags: []
+user_id: THIN 15
