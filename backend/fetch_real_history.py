@@ -14,11 +14,11 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 def tarik_sejarah_asli():
     print("Menyambung ke Satelit OpenWeatherMap...")
-    print("Menarik data sejarah organik 6 hari terakhir...\n")
+    print("Menarik data sejarah organik 29 hari terakhir...\n")
     
     with app.app_context():
         waktu_sekarang = datetime.now()
-        waktu_awal = int((waktu_sekarang - timedelta(days=6)).timestamp()) 
+        waktu_awal = int((waktu_sekarang - timedelta(days=29)).timestamp()) 
         waktu_akhir = int(waktu_sekarang.timestamp())
         
         for nama_kota, kordinat in DAFTAR_KOTA.items():
