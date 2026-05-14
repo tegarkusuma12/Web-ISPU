@@ -12,6 +12,7 @@ data_training/mlruns/
 # Mengabaikan file cache Python
 __pycache__/
 *.pyc
+*.py[cod]
 
 # Mengabaikan file database lokal (opsional, tapi disarankan)
 *.db
@@ -22,3 +23,8 @@ __pycache__/
 
 # Mengabaikan DVC
 .dvc/config.local
+
+# MLflow local leftovers
+mlruns/
+mlflow.db
+get_host_info.js
