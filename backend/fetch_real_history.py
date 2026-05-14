@@ -89,6 +89,7 @@ def tarik_sejarah_asli():
                         'O3': max_o3, 'SO2': max_so2 
                     }
                     
+                    
                     # Hitung Skor ISPU Akhir
                     hasil_ispu = kalkulasi_ispu_final(dict_polutan)
                     
