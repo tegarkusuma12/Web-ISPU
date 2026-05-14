@@ -92,13 +92,13 @@ def siapkan_fitur_prediksi(df_history_4_hari, daftar_polutan, kolom_training_asl
     """
     df_temp = df_history_4_hari.copy()
     
-    # 1. Pastikan kolom Waktu berformat Datetime
-    df_temp['Waktu'] = pd.to_datetime(df_temp['Waktu'])
-    df_temp = df_temp.sort_values(by='Waktu').reset_index(drop=True)
+    # 1. Sesuaikan dengan kolom ERD Baru (waktu_aktual)
+    df_temp['waktu_aktual'] = pd.to_datetime(df_temp['waktu_aktual'])
+    df_temp = df_temp.sort_values(by='waktu_aktual').reset_index(drop=True)
     
     # 2. Fitur Temporal
-    df_temp['Bulan'] = df_temp['Waktu'].dt.month
-    df_temp['Is_Weekend'] = df_temp['Waktu'].dt.dayofweek.isin([5, 6]).astype(int)
+    df_temp['Bulan'] = df_temp['waktu_aktual'].dt.month
+    df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int)
     
     # 3. Fitur History & Rolling (Mundur 3 Hari)
     for p in daftar_polutan:
@@ -108,21 +108,22 @@ def siapkan_fitur_prediksi(df_history_4_hari, daftar_polutan, kolom_training_asl
         df_temp[f'{p}_RollMean_3'] = df_temp[p].shift(1).rolling(window=3).mean()
         df_temp[f'{p}_RollMax_3'] = df_temp[p].shift(1).rolling(window=3).max()
         
-    # 4. One-Hot Encoding untuk Kota
-    df_temp = pd.get_dummies(df_temp, columns=['Kota'])
+    # 4. One-Hot Encoding (Sesuaikan dengan ERD Baru: nama_wilayah)
+    df_temp = pd.get_dummies(df_temp, columns=['nama_wilayah'])
     
-    # 5. Ambil BARIS TERAKHIR SAJA (yaitu Hari Ini, karena H-1 s.d H-3 sudah terisi untuk baris ini)
+    # pd.get_dummies akan menghasilkan nama kolom seperti 'nama_wilayah_Kota Surabaya'.
+    # Kita harus mengubah teks 'nama_wilayah_' menjadi 'Kota_' agar model AI mengenalinya
+    df_temp.columns = [col.replace('nama_wilayah_', 'Kota_') for col in df_temp.columns]
+    
+    # 5. Ambil BARIS TERAKHIR SAJA (Hari Ini)
     X_prediksi_besok = df_temp.iloc[[-1]].copy()
     
     # 6. PENYELAMAT DIMENSI: Menambahkan kolom kota lain yang kosong
-    # Jika kita memprediksi data 'Surabaya', pd.get_dummies hanya membuat 'Kota_Surabaya'.
-    # Padahal XGBoost saat training melihat 'Kota_Malang', 'Kota_Gresik', dll.
     for col in kolom_training_asli:
         if col not in X_prediksi_besok.columns:
             X_prediksi_besok[col] = 0
             
-    # Hapus kolom yang tidak berguna (seperti 'Waktu' dan polutan hari ini)
-    # dan pastikan urutan kolomnya SAMA PERSIS dengan saat training
+    # Hapus kolom yang tidak berguna dan urutkan sesuai saat training
     X_prediksi_besok = X_prediksi_besok[kolom_training_asli]
     
     return X_prediksi_besok

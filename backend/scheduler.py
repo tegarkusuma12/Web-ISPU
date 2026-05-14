@@ -1,188 +1,220 @@
-# backend/scheduler.py
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import joblib
 import os
+import time
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler # type: ignore
-from app import app, db, RiwayatCuaca, HasilPrediksi
+from app import app, db, DataHistoris, Predictions, WilayahDetails, ModelRegistry
 from ispu_logic import kalkulasi_ispu_final
 
 load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
-# Lengkap 38 Kota dan Kabupaten di Jawa Timur
-# PASTIKAN penamaan ini SAMA PERSIS dengan teks di kolom 'Kota' pada dataset CSV-mu
-DAFTAR_KOTA = {
-    "Kota Surabaya": {"lat": -7.2504, "lon": 112.7688},
-    "Kota Malang": {"lat": -7.9839, "lon": 112.6214},
-    "Kabupaten Malang": {"lat": -8.1667, "lon": 112.5833},
-    "Kota Batu": {"lat": -7.8671, "lon": 112.5239},
-    "Kabupaten Sidoarjo": {"lat": -7.4478, "lon": 112.7183},
-    "Kabupaten Gresik": {"lat": -7.1558, "lon": 112.6550},
-    "Kabupaten Bangkalan": {"lat": -7.0255, "lon": 112.9397},
-    "Kabupaten Sampang": {"lat": -7.0500, "lon": 113.2500},
-    "Kabupaten Pamekasan": {"lat": -7.1667, "lon": 113.4833},
-    "Kabupaten Sumenep": {"lat": -7.0167, "lon": 113.8667},
-    "Kota Mojokerto": {"lat": -7.4667, "lon": 112.4333},
-    "Kabupaten Mojokerto": {"lat": -7.5500, "lon": 112.4333},
-    "Kabupaten Jombang": {"lat": -7.5500, "lon": 112.2333},
-    "Kabupaten Bojonegoro": {"lat": -7.1500, "lon": 111.8833},
-    "Kabupaten Tuban": {"lat": -6.8976, "lon": 112.0649},
-    "Kabupaten Lamongan": {"lat": -7.1167, "lon": 112.4167},
-    "Kota Madiun": {"lat": -7.6298, "lon": 111.5239},
-    "Kabupaten Madiun": {"lat": -7.6167, "lon": 111.6500},
-    "Kabupaten Ngawi": {"lat": -7.4000, "lon": 111.4500},
-    "Kabupaten Magetan": {"lat": -7.6500, "lon": 111.3333},
-    "Kabupaten Ponorogo": {"lat": -7.8667, "lon": 111.4667},
-    "Kabupaten Pacitan": {"lat": -8.2000, "lon": 111.1167},
-    "Kota Kediri": {"lat": -7.8167, "lon": 112.0167},
-    "Kabupaten Kediri": {"lat": -7.8167, "lon": 112.0000},
-    "Kabupaten Nganjuk": {"lat": -7.6000, "lon": 111.9000},
-    "Kota Blitar": {"lat": -8.0983, "lon": 112.1681},
-    "Kabupaten Blitar": {"lat": -8.1333, "lon": 112.2167},
-    "Kabupaten Tulungagung": {"lat": -8.0667, "lon": 111.9000},
-    "Kabupaten Trenggalek": {"lat": -8.0500, "lon": 111.7167},
-    "Kota Pasuruan": {"lat": -7.6453, "lon": 112.9075},
-    "Kabupaten Pasuruan": {"lat": -7.7333, "lon": 112.8333},
-    "Kota Probolinggo": {"lat": -7.7500, "lon": 113.2167},
-    "Kabupaten Probolinggo": {"lat": -7.7667, "lon": 113.3333},
-    "Kabupaten Lumajang": {"lat": -8.1333, "lon": 113.2167},
-    "Kabupaten Jember": {"lat": -8.1700, "lon": 113.7000},
-    "Kabupaten Bondowoso": {"lat": -7.9167, "lon": 113.8167},
-    "Kabupaten Situbondo": {"lat": -7.7167, "lon": 114.0000},
-    "Kabupaten Banyuwangi": {"lat": -8.2192, "lon": 114.3692}
-}
-
-# Muat Model XGBoost 6 Otak dan Daftar Fitur
-paket_model = joblib.load('models/xgb_ispu_jatim_multi_otak.pkl')
-dict_model_spesialis = paket_model['dict_model_spesialis'] # Ini dictionary berisi 6 model
-fitur_model = paket_model['fitur'] # Daftar kolom X saat training
+# 1. Muat Model XGBoost 6 Otak (Multi-Output)
+MODEL_PATH = 'models/xgb_ispu_jatim_multi_otak.pkl'
+if os.path.exists(MODEL_PATH):
+    paket_model = joblib.load(MODEL_PATH)
+    dict_model_spesialis = paket_model['dict_model_spesialis']
+    fitur_model = paket_model['fitur']
+    print(f"✅ Model ML berhasil dimuat dari {MODEL_PATH}")
+else:
+    print(f"⚠️ Peringatan: File model {MODEL_PATH} tidak ditemukan!")
 
 def tarik_data_per_jam():
-    """Dijalankan setiap jam untuk menarik data saat ini"""
+    """Menarik data polusi udara saat ini untuk seluruh wilayah di pangkalan data"""
     print(f"[{datetime.now()}] Memulai penarikan data API per jam...")
+    
     with app.app_context():
-        for nama_kota, kordinat in DAFTAR_KOTA.items():
-            url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={kordinat['lat']}&lon={kordinat['lon']}&appid={API_KEY}"
+        # Ambil daftar wilayah langsung dari database
+        daftar_wilayah = WilayahDetails.query.all()
+        
+        for wilayah in daftar_wilayah:
+            # --- PENGAMAN ANTI-DUPLIKASI ---
+            # Normalisasi waktu ke jam 00 (Misal narik jam 12:05:30 -> dianggap 12:00:00)
+            sekarang = datetime.now()
+            waktu_jam_ini = sekarang.replace(minute=0, second=0, microsecond=0)
+            
+            # Cek ke database, apakah jam ini sudah ada datanya?
+            data_ada = DataHistoris.query.filter_by(
+                id_wilayah=wilayah.id_wilayah, 
+                waktu_aktual=waktu_jam_ini
+            ).first()
+            
+            if data_ada:
+                # Jika sudah ada, lewati kota ini (continue ke kota berikutnya)
+                continue 
+            # -------------------------------
+
+            url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={wilayah.latitude}&lon={wilayah.longitude}&appid={API_KEY}"
             try:
                 respon = requests.get(url).json()
                 data_polusi = respon['list'][0]['components']
                 
-                # Simpan ke Database (DITAMBAH SO2)
-                catatan_baru = RiwayatCuaca(
-                    kota=nama_kota,
-                    pm25=data_polusi.get('pm2_5', 0),
-                    pm10=data_polusi.get('pm10', 0),
-                    co=data_polusi.get('co', 0),
-                    no2=data_polusi.get('no2', 0),
-                    o3=data_polusi.get('o3', 0),
-                    so2=data_polusi.get('so2', 0) # <--- TAMBAHAN SO2
+                # Hitung ISPU untuk data real-time saat ini
+                dict_polutan = {
+                    'PM25': data_polusi.get('pm2_5', 0), 
+                    'PM10': data_polusi.get('pm10', 0),
+                    'CO': data_polusi.get('co', 0), 
+                    'NO2': data_polusi.get('no2', 0), 
+                    'O3': data_polusi.get('o3', 0), 
+                    'SO2': data_polusi.get('so2', 0)
+                }
+                hasil_ispu = kalkulasi_ispu_final(dict_polutan)
+
+                # Simpan ke tabel DataHistoris (sebagai catatan real-time)
+                catatan_baru = DataHistoris(
+                    id_wilayah=wilayah.id_wilayah,
+                    waktu_aktual=waktu_jam_ini, # Menggunakan waktu normalisasi
+                    pm25=dict_polutan['PM25'],
+                    pm10=dict_polutan['PM10'],
+                    so2=dict_polutan['SO2'],
+                    co=dict_polutan['CO'],
+                    no2=dict_polutan['NO2'],
+                    ozon=dict_polutan['O3'],
+                    skor_ispu=hasil_ispu['nilai_ispu'],
+                    kategori_ispu=hasil_ispu['kategori']
                 )
                 db.session.add(catatan_baru)
-                print(f" Berhasil menyimpan data cuaca: {nama_kota}")
+                # Tambahkan info jam di terminal agar tahu data jam berapa yang masuk
+                print(f"   [+] Data disimpan: {wilayah.nama_wilayah} (Jam {waktu_jam_ini.strftime('%H:%M')})")
+                
+                # Jeda singkat agar tidak kena blokir dari OpenWeatherMap
+                time.sleep(0.5)
+                
             except Exception as e:
-                print(f" Gagal menarik data kota {nama_kota}: {e}")
+                print(f"   [!] Gagal menarik data {wilayah.nama_wilayah}: {e}")
                 
         db.session.commit()
-    print("Penarikan selesai!")
+    print("--- Penarikan per jam selesai ---")
 
 def eksekusi_prediksi_harian():
-    """Dijalankan setiap 23:55 untuk memprediksi besok berdasarkan data 3 hari terakhir"""
-    print(f"[{datetime.now()}] Mengeksekusi Prediksi XGBoost yang Dinamis untuk Besok...")
+    """Memprediksi kualitas udara besok menggunakan model XGBoost"""
+    print(f"[{datetime.now()}] Menjalankan siklus prediksi harian...")
     besok = datetime.now().date() + timedelta(days=1)
     
     with app.app_context():
-        for nama_kota in DAFTAR_KOTA.keys():
-            # 1. Ambil Riwayat 3 Hari Terakhir dari Database untuk Kota ini
-            riwayat = HasilPrediksi.query.filter_by(kota=nama_kota).order_by(HasilPrediksi.tanggal_prediksi.desc()).limit(3).all()
+        # --- PENGAMAN 1: Cek dan daftarkan model ML ke tabel registry jika kosong ---
+        model_aktif = ModelRegistry.query.filter_by(is_active=True).first()
+        if not model_aktif:
+            model_aktif = ModelRegistry(
+                algoritma='XGBoost Multi-Otak',
+                versi_model='v1.0',
+                is_active=True
+            )
+            db.session.add(model_aktif)
+            db.session.commit()
+            print("   [+] Mendaftarkan model XGBoost ke model_registry...")
+        # --------------------------------------------------------------------------
+        
+        daftar_wilayah = WilayahDetails.query.all()
+        
+        for wilayah in daftar_wilayah:
+            # --- PENGAMAN 2: Cek anti-duplikasi prediksi ---
+            # Ubah tanggal 'besok' menjadi format datetime (jam 00:00:00)
+            besok_dt = datetime.combine(besok, datetime.min.time())
             
-            # 2. Hitung Rata-rata Polusinya (DITAMBAH SO2)
+            pred_ada = Predictions.query.filter_by(
+                id_wilayah=wilayah.id_wilayah, 
+                target_waktu=besok_dt
+            ).first()
+            
+            if pred_ada:
+                continue # Lewati jika prediksi untuk besok di wilayah ini sudah ada
+            # -----------------------------------------------
+
+            # 1. Ambil data historis 3 hari terakhir (72 jam) dari database
+            riwayat = DataHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah)\
+                        .order_by(DataHistoris.waktu_aktual.desc())\
+                        .limit(72).all()
+            
+            # 2. Hitung Rata-rata Polusinya
             if riwayat:
                 avg_pm25 = sum([r.pm25 for r in riwayat]) / len(riwayat)
                 avg_pm10 = sum([r.pm10 for r in riwayat]) / len(riwayat)
                 avg_co = sum([r.co for r in riwayat]) / len(riwayat)
                 avg_no2 = sum([r.no2 for r in riwayat]) / len(riwayat)
-                avg_o3 = sum([r.o3 for r in riwayat]) / len(riwayat)
+                avg_o3 = sum([r.ozon for r in riwayat]) / len(riwayat)
                 avg_so2 = sum([r.so2 for r in riwayat]) / len(riwayat)
             else:
-                avg_pm25, avg_pm10, avg_co, avg_no2, avg_o3, avg_so2 = 15.0, 50.0, 1000.0, 5.0, 50.0, 5.0
+                # Nilai default jika database historis suatu kota masih kosong
+                avg_pm25, avg_pm10, avg_co, avg_no2, avg_o3, avg_so2 = 15.0, 40.0, 800.0, 10.0, 40.0, 5.0
             
             # 3. Siapkan DataFrame untuk AI
             df_input = pd.DataFrame(0, index=[0], columns=fitur_model)
-            
-            # 🌟 FITUR TEMPORAL BARU: Agar AI tidak error dimension mismatch
             df_input['Bulan'] = besok.month
             df_input['Is_Weekend'] = 1 if besok.weekday() >= 5 else 0
 
             # 4. Masukkan Rata-rata tersebut ke kolom fitur AI secara otomatis
+            mapping = {
+                'pm25': avg_pm25, 'pm10': avg_pm10, 'co': avg_co,
+                'no2': avg_no2, 'o3': avg_o3, 'ozon': avg_o3, 'so2': avg_so2
+            }
+            
             for col in fitur_model:
                 col_lower = col.lower()
-                if 'kota' in col_lower or 'bulan' in col_lower or 'weekend' in col_lower:
-                    continue 
-                if 'pm25' in col_lower or 'pm2.5' in col_lower:
-                    df_input[col] = avg_pm25
-                elif 'pm10' in col_lower:
-                    df_input[col] = avg_pm10
-                elif 'co' in col_lower:
-                    df_input[col] = avg_co
-                elif 'no2' in col_lower:
-                    df_input[col] = avg_no2
-                elif 'o3' in col_lower or 'ozon' in col_lower:
-                    df_input[col] = avg_o3
-                elif 'so2' in col_lower:
-                    df_input[col] = avg_so2
-                    
+                for key, val in mapping.items():
+                    if key in col_lower:
+                        df_input[col] = val
+            
             # 5. Nyalakan nilai One-Hot Encoding untuk kota saat ini
-            # Asumsi saat training kolomnya bernama 'Kota_Surabaya', 'Kota_Malang', dst
-            nama_kolom_kota = f"Kota_{nama_kota}" 
-            if nama_kolom_kota in df_input.columns:
-                df_input[nama_kolom_kota] = 1
+            kolom_kota = f"Kota_{wilayah.nama_wilayah}"
+            if kolom_kota in df_input.columns:
+                df_input[kolom_kota] = 1
                 
             # 6. AI Melakukan Prediksi dengan 6 OTAK BERBEDA
             dict_prediksi = {}
-            for nama_target, model_ai in dict_model_spesialis.items():
-                # nama_target contohnya: 'TARGET_PM2.5 (µg/m³)_Besok' -> Kita ambil gasnya saja
-                polutan = nama_target.split('_')[1].split(' ')[0].replace('.', '') 
+            try:
+                for nama_target, model_ai in dict_model_spesialis.items():
+                    # Parsing nama polutan dari target model
+                    polutan = nama_target.split('_')[1].split(' ')[0].replace('.', '').upper()
+                    # Lakukan prediksi dan pastikan nilainya tidak negatif
+                    pred_val = model_ai.predict(df_input)[0]
+                    dict_prediksi[polutan] = float(max(0, pred_val)) 
+
+                # 7. Konversi ke ISPU Resmi
+                hasil_ispu = kalkulasi_ispu_final(dict_prediksi)
                 
-                # Lakukan prediksi menggunakan model spesialis gas tersebut
-                prediksi_angka = model_ai.predict(df_input)[0]
-                dict_prediksi[polutan] = float(prediksi_angka)
-            
-            # 7. Konversi ke ISPU Resmi
-            hasil_ispu = kalkulasi_ispu_final(dict_prediksi)
-            
-            # 8. Simpan ke Database
-            prediksi_baru = HasilPrediksi(
-                tanggal_prediksi=besok,
-                kota=nama_kota,
-                pm25=dict_prediksi.get('PM25', 0),
-                pm10=dict_prediksi.get('PM10', 0),
-                co=dict_prediksi.get('CO', 0),
-                no2=dict_prediksi.get('NO2', 0),
-                o3=dict_prediksi.get('O3', 0),
-                so2=dict_prediksi.get('SO2', 0), # <--- TAMBAHAN SO2
-                nilai_ispu=hasil_ispu['nilai_ispu'],
-                kategori=hasil_ispu['kategori'],
-                parameter_kritis=hasil_ispu['parameter_kritis']
-            )
-            db.session.add(prediksi_baru)
-            print(f" [XGBoost Multi-Otak] Prediksi {nama_kota} selesai (ISPU: {hasil_ispu['nilai_ispu']} - {hasil_ispu['kategori']})")
-            
+                # 8. Simpan ke Database
+                prediksi_baru = Predictions(
+                    id_model=model_aktif.id_model,           # Relasi ke tabel model_registry
+                    id_wilayah=wilayah.id_wilayah,           # Relasi ke wilayah
+                    target_waktu=besok_dt,                   # Waktu prediksi ditujukan (besok jam 00:00)
+                    pred_pm25=dict_prediksi.get('PM25', 0),  
+                    pred_pm10=dict_prediksi.get('PM10', 0),
+                    pred_so2=dict_prediksi.get('SO2', 0),
+                    pred_co=dict_prediksi.get('CO', 0),
+                    pred_no2=dict_prediksi.get('NO2', 0),
+                    pred_ozon=dict_prediksi.get('O3', 0),
+                    pred_skor_ispu=hasil_ispu['nilai_ispu'],
+                    pred_kategori_ispu=hasil_ispu['kategori']
+                )
+                db.session.add(prediksi_baru)
+                print(f"   [OK] Prediksi {wilayah.nama_wilayah}: ISPU {hasil_ispu['nilai_ispu']} ({hasil_ispu['kategori']})")
+                
+            except Exception as e:
+                print(f"   [!] Gagal memprediksi {wilayah.nama_wilayah}: {e}")
+                
         db.session.commit()
+    print("--- Siklus prediksi harian selesai ---")
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    # Jadwalkan fungsi tarik data setiap menit ke-0 pada setiap jam
+    
+    # Jalankan setiap jam (menit ke-0)
     scheduler.add_job(tarik_data_per_jam, 'cron', minute=0)
-    # Jadwalkan prediksi harian jam 23:55 setiap malam
+    
+    # Jalankan prediksi harian pukul 23:55
     scheduler.add_job(eksekusi_prediksi_harian, 'cron', hour=23, minute=55)
     
-    print("Scheduler ISPU Jatim mulai berjalan...")
+    print("--- Scheduler ISPU Jatim telah aktif dan berjalan ---")
     
-    # [OPSIONAL] Panggil manual sekali saat file di-run untuk menguji API
+    # Jalankan sekali saat startup untuk inisialisasi data
     tarik_data_per_jam() 
     eksekusi_prediksi_harian()
     
-    scheduler.start()
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        pass
