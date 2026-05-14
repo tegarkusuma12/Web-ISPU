@@ -1,0 +1,5 @@
+outs:
+- md5: 37966a6f03d6260af8d1d7cfb8148682
+  size: 8283889
+  hash: md5
+  path: ispu_jatim_xgboost_optuna.pkl

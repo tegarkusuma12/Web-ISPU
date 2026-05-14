@@ -1,0 +1,5 @@
+outs:
+- md5: 8f8d4a47c449f6edbe88f6e26a4242be
+  size: 1330
+  hash: md5
+  path: koordinat.csv
