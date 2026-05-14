@@ -19,3 +19,6 @@ __pycache__/
 
 # Mengabaikan file konfigurasi VS Code
 .vscode/
+
+# Mengabaikan DVC
+.dvc
