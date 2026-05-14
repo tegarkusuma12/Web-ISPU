@@ -4,16 +4,20 @@ from datetime import datetime, timedelta
 import joblib
 import os
 import time
+import pytz
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler # type: ignore
 from app import app, db, DataHistoris, Predictions, WilayahDetails, ModelRegistry, ValidationsLogs
-from ispu_logic import kalkulasi_ispu_final
+from ispu_logic import kalkulasi_ispu_final, siapkan_fitur_prediksi
 
 load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
+# Set Zona Waktu Baku (Persiapan Server/Docker)
+TZ_WIB = pytz.timezone('Asia/Jakarta')
+
 # 1. Muat Model XGBoost 6 Otak (Multi-Output)
-MODEL_PATH = 'models/xgb_ispu_jatim_multi_otak.pkl'
+MODEL_PATH = 'data_training/xgb_ispu_jatim_multi_otak.pkl' # Pastikan path ini sesuai
 if os.path.exists(MODEL_PATH):
     paket_model = joblib.load(MODEL_PATH)
     dict_model_spesialis = paket_model['dict_model_spesialis']
@@ -23,64 +27,43 @@ else:
     print(f"⚠️ Peringatan: File model {MODEL_PATH} tidak ditemukan!")
 
 def tarik_data_per_jam():
-    """Menarik data polusi udara saat ini untuk seluruh wilayah di pangkalan data"""
-    print(f"[{datetime.now()}] Memulai penarikan data API per jam...")
+    """Menarik data polusi udara saat ini untuk seluruh wilayah (Real-time Snapshot)"""
+    sekarang = datetime.now(TZ_WIB)
+    print(f"[{sekarang.strftime('%Y-%m-%d %H:%M:%S')}] Memulai penarikan data API per jam...")
     
     with app.app_context():
-        # Ambil daftar wilayah langsung dari database
         daftar_wilayah = WilayahDetails.query.all()
         
         for wilayah in daftar_wilayah:
-            # --- PENGAMAN ANTI-DUPLIKASI ---
-            # Normalisasi waktu ke jam 00 (Misal narik jam 12:05:30 -> dianggap 12:00:00)
-            sekarang = datetime.now()
+            # Normalisasi waktu ke jam 00 
             waktu_jam_ini = sekarang.replace(minute=0, second=0, microsecond=0)
             
-            # Cek ke database, apakah jam ini sudah ada datanya?
-            data_ada = DataHistoris.query.filter_by(
-                id_wilayah=wilayah.id_wilayah, 
-                waktu_aktual=waktu_jam_ini
-            ).first()
-            
+            data_ada = DataHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah, waktu_aktual=waktu_jam_ini).first()
             if data_ada:
-                # Jika sudah ada, lewati kota ini (continue ke kota berikutnya)
                 continue 
-            # -------------------------------
 
             url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={wilayah.latitude}&lon={wilayah.longitude}&appid={API_KEY}"
             try:
                 respon = requests.get(url).json()
                 data_polusi = respon['list'][0]['components']
                 
-                # Hitung ISPU untuk data real-time saat ini
                 dict_polutan = {
-                    'PM25': data_polusi.get('pm2_5', 0), 
-                    'PM10': data_polusi.get('pm10', 0),
-                    'CO': data_polusi.get('co', 0), 
-                    'NO2': data_polusi.get('no2', 0), 
-                    'O3': data_polusi.get('o3', 0), 
-                    'SO2': data_polusi.get('so2', 0)
+                    'PM25': data_polusi.get('pm2_5', 0), 'PM10': data_polusi.get('pm10', 0),
+                    'CO': data_polusi.get('co', 0), 'NO2': data_polusi.get('no2', 0), 
+                    'O3': data_polusi.get('o3', 0), 'SO2': data_polusi.get('so2', 0)
                 }
                 hasil_ispu = kalkulasi_ispu_final(dict_polutan)
 
-                # Simpan ke tabel DataHistoris (sebagai catatan real-time)
                 catatan_baru = DataHistoris(
                     id_wilayah=wilayah.id_wilayah,
-                    waktu_aktual=waktu_jam_ini, # Menggunakan waktu normalisasi
-                    pm25=dict_polutan['PM25'],
-                    pm10=dict_polutan['PM10'],
-                    so2=dict_polutan['SO2'],
-                    co=dict_polutan['CO'],
-                    no2=dict_polutan['NO2'],
-                    ozon=dict_polutan['O3'],
-                    skor_ispu=hasil_ispu['nilai_ispu'],
-                    kategori_ispu=hasil_ispu['kategori']
+                    waktu_aktual=waktu_jam_ini,
+                    pm25=dict_polutan['PM25'], pm10=dict_polutan['PM10'],
+                    so2=dict_polutan['SO2'], co=dict_polutan['CO'],
+                    no2=dict_polutan['NO2'], ozon=dict_polutan['O3'],
+                    skor_ispu=hasil_ispu['nilai_ispu'], kategori_ispu=hasil_ispu['kategori']
                 )
                 db.session.add(catatan_baru)
-                # Tambahkan info jam di terminal agar tahu data jam berapa yang masuk
                 print(f"   [+] Data disimpan: {wilayah.nama_wilayah} (Jam {waktu_jam_ini.strftime('%H:%M')})")
-                
-                # Jeda singkat agar tidak kena blokir dari OpenWeatherMap
                 time.sleep(0.5)
                 
             except Exception as e:
@@ -89,106 +72,75 @@ def tarik_data_per_jam():
         db.session.commit()
     print("--- Penarikan per jam selesai ---")
 
+
 def eksekusi_prediksi_harian():
-    """Memprediksi kualitas udara besok menggunakan model XGBoost"""
-    print(f"[{datetime.now()}] Menjalankan siklus prediksi harian...")
-    besok = datetime.now().date() + timedelta(days=1)
+    """Memprediksi kualitas udara besok dengan Rekayasa Fitur AI yang tepat"""
+    sekarang = datetime.now(TZ_WIB)
+    besok = sekarang.date() + timedelta(days=1)
+    print(f"[{sekarang.strftime('%Y-%m-%d %H:%M:%S')}] Menjalankan siklus prediksi harian...")
     
     with app.app_context():
-        # --- PENGAMAN 1: Cek dan daftarkan model ML ke tabel registry jika kosong ---
         model_aktif = ModelRegistry.query.filter_by(is_active=True).first()
         if not model_aktif:
-            model_aktif = ModelRegistry(
-                algoritma='XGBoost Multi-Otak',
-                versi_model='v1.0',
-                is_active=True
-            )
+            model_aktif = ModelRegistry(algoritma='XGBoost Multi-Otak', versi_model='v1.0', is_active=True)
             db.session.add(model_aktif)
             db.session.commit()
-            print("   [+] Mendaftarkan model XGBoost ke model_registry...")
-        # --------------------------------------------------------------------------
         
         daftar_wilayah = WilayahDetails.query.all()
         
         for wilayah in daftar_wilayah:
-            # --- PENGAMAN 2: Cek anti-duplikasi prediksi ---
-            # Ubah tanggal 'besok' menjadi format datetime (jam 00:00:00)
-            besok_dt = datetime.combine(besok, datetime.min.time())
+            besok_dt = datetime.combine(besok, datetime.min.time()).replace(tzinfo=TZ_WIB)
             
-            pred_ada = Predictions.query.filter_by(
-                id_wilayah=wilayah.id_wilayah, 
-                target_waktu=besok_dt
-            ).first()
+            if Predictions.query.filter_by(id_wilayah=wilayah.id_wilayah, target_waktu=besok_dt).first():
+                continue # Skip jika sudah ada
             
-            if pred_ada:
-                continue # Lewati jika prediksi untuk besok di wilayah ini sudah ada
-            # -----------------------------------------------
+            # 1. Ambil Data Historis 4 Hari ke belakang (Untuk fitur AI: H-1, H-2, H-3)
+            batas_waktu_h4 = datetime.combine(besok - timedelta(days=4), datetime.min.time()).replace(tzinfo=TZ_WIB)
+            
+            riwayat = DataHistoris.query.filter(
+                DataHistoris.id_wilayah == wilayah.id_wilayah,
+                DataHistoris.waktu_aktual >= batas_waktu_h4
+            ).order_by(DataHistoris.waktu_aktual.asc()).all()
 
-            # 1. Ambil data historis 3 hari terakhir (72 jam) dari database
-            riwayat = DataHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah)\
-                        .order_by(DataHistoris.waktu_aktual.desc())\
-                        .limit(72).all()
-            
-            # 2. Hitung Rata-rata Polusinya
-            if riwayat:
-                avg_pm25 = sum([r.pm25 for r in riwayat]) / len(riwayat)
-                avg_pm10 = sum([r.pm10 for r in riwayat]) / len(riwayat)
-                avg_co = sum([r.co for r in riwayat]) / len(riwayat)
-                avg_no2 = sum([r.no2 for r in riwayat]) / len(riwayat)
-                avg_o3 = sum([r.ozon for r in riwayat]) / len(riwayat)
-                avg_so2 = sum([r.so2 for r in riwayat]) / len(riwayat)
-            else:
-                # Nilai default jika database historis suatu kota masih kosong
-                avg_pm25, avg_pm10, avg_co, avg_no2, avg_o3, avg_so2 = 15.0, 40.0, 800.0, 10.0, 40.0, 5.0
-            
-            # 3. Siapkan DataFrame untuk AI
-            df_input = pd.DataFrame(0, index=[0], columns=fitur_model)
-            df_input['Bulan'] = besok.month
-            df_input['Is_Weekend'] = 1 if besok.weekday() >= 5 else 0
+            if len(riwayat) < 4:
+                print(f"   [!] Data riwayat {wilayah.nama_wilayah} belum cukup. Skip prediksi.")
+                continue
 
-            # 4. Masukkan Rata-rata tersebut ke kolom fitur AI secara otomatis
-            mapping = {
-                'pm25': avg_pm25, 'pm10': avg_pm10, 'co': avg_co,
-                'no2': avg_no2, 'o3': avg_o3, 'ozon': avg_o3, 'so2': avg_so2
-            }
+            # 2. Konversi ke DataFrame dan Agregasi Harian
+            data_list = []
+            for r in riwayat:
+                data_list.append({
+                    'waktu_aktual': r.waktu_aktual.date(),
+                    'nama_wilayah': wilayah.nama_wilayah,
+                    'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
+                    'CO': r.co, 'NO2': r.no2, 'O3': r.ozon
+                })
             
-            for col in fitur_model:
-                col_lower = col.lower()
-                for key, val in mapping.items():
-                    if key in col_lower:
-                        df_input[col] = val
-            
-            # 5. Nyalakan nilai One-Hot Encoding untuk kota saat ini
-            kolom_kota = f"Kota_{wilayah.nama_wilayah}"
-            if kolom_kota in df_input.columns:
-                df_input[kolom_kota] = 1
-                
-            # 6. AI Melakukan Prediksi dengan 6 OTAK BERBEDA
+            df_history_raw = pd.DataFrame(data_list)
+            # Rata-ratakan per hari supaya formatnya cocok dengan AI
+            df_history_harian = df_history_raw.groupby(['waktu_aktual', 'nama_wilayah']).mean().reset_index()
+
+            # 3. Panggil Otak AI (Rekayasa Fitur)
+            daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
+            df_input = siapkan_fitur_prediksi(df_history_harian, daftar_polutan, fitur_model)
+
+            # 4. Lakukan Prediksi Multi-Otak
             dict_prediksi = {}
             try:
                 for nama_target, model_ai in dict_model_spesialis.items():
-                    # Parsing nama polutan dari target model
                     polutan = nama_target.split('_')[1].split(' ')[0].replace('.', '').upper()
-                    # Lakukan prediksi dan pastikan nilainya tidak negatif
                     pred_val = model_ai.predict(df_input)[0]
                     dict_prediksi[polutan] = float(max(0, pred_val)) 
 
-                # 7. Konversi ke ISPU Resmi
                 hasil_ispu = kalkulasi_ispu_final(dict_prediksi)
                 
-                # 8. Simpan ke Database
                 prediksi_baru = Predictions(
-                    id_model=model_aktif.id_model,           # Relasi ke tabel model_registry
-                    id_wilayah=wilayah.id_wilayah,           # Relasi ke wilayah
-                    target_waktu=besok_dt,                   # Waktu prediksi ditujukan (besok jam 00:00)
-                    pred_pm25=dict_prediksi.get('PM25', 0),  
-                    pred_pm10=dict_prediksi.get('PM10', 0),
-                    pred_so2=dict_prediksi.get('SO2', 0),
-                    pred_co=dict_prediksi.get('CO', 0),
-                    pred_no2=dict_prediksi.get('NO2', 0),
-                    pred_ozon=dict_prediksi.get('O3', 0),
-                    pred_skor_ispu=hasil_ispu['nilai_ispu'],
-                    pred_kategori_ispu=hasil_ispu['kategori']
+                    id_model=model_aktif.id_model, id_wilayah=wilayah.id_wilayah,
+                    target_waktu=besok_dt,
+                    pred_pm25=dict_prediksi.get('PM25', 0), pred_pm10=dict_prediksi.get('PM10', 0),
+                    pred_so2=dict_prediksi.get('SO2', 0), pred_co=dict_prediksi.get('CO', 0),
+                    pred_no2=dict_prediksi.get('NO2', 0), pred_ozon=dict_prediksi.get('O3', 0),
+                    pred_skor_ispu=hasil_ispu['nilai_ispu'], pred_kategori_ispu=hasil_ispu['kategori']
                 )
                 db.session.add(prediksi_baru)
                 print(f"   [OK] Prediksi {wilayah.nama_wilayah}: ISPU {hasil_ispu['nilai_ispu']} ({hasil_ispu['kategori']})")
@@ -199,23 +151,19 @@ def eksekusi_prediksi_harian():
         db.session.commit()
     print("--- Siklus prediksi harian selesai ---")
 
+
 def evaluasi_akurasi_harian():
-    """Membandingkan prediksi kemarin dengan realita hari ini"""
-    print(f"[{datetime.now()}] Menjalankan evaluasi akurasi model...")
-    hari_ini = datetime.now().date()
-    hari_ini_dt = datetime.combine(hari_ini, datetime.min.time())
+    """Membandingkan prediksi dengan realita hari ini (Diperbaiki kolom databasenya)"""
+    sekarang = datetime.now(TZ_WIB)
+    hari_ini = sekarang.date()
+    hari_ini_dt = datetime.combine(hari_ini, datetime.min.time()).replace(tzinfo=TZ_WIB)
+    print(f"[{sekarang.strftime('%Y-%m-%d %H:%M:%S')}] Menjalankan evaluasi akurasi model...")
 
     with app.app_context():
         daftar_wilayah = WilayahDetails.query.all()
         
         for wilayah in daftar_wilayah:
-            # 1. Ambil Prediksi yang target waktunya adalah HARI INI
-            prediksi = Predictions.query.filter_by(
-                id_wilayah=wilayah.id_wilayah, 
-                target_waktu=hari_ini_dt
-            ).first()
-
-            # 2. Ambil Rata-rata Realita hari ini dari DataHistoris
+            prediksi = Predictions.query.filter_by(id_wilayah=wilayah.id_wilayah, target_waktu=hari_ini_dt).first()
             realita_rows = DataHistoris.query.filter(
                 DataHistoris.id_wilayah == wilayah.id_wilayah,
                 DataHistoris.waktu_aktual >= hari_ini_dt,
@@ -223,24 +171,30 @@ def evaluasi_akurasi_harian():
             ).all()
 
             if prediksi and realita_rows:
-                # Hitung rata-rata realita hari ini
-                avg_pm25_real = sum([r.pm25 for r in realita_rows]) / len(realita_rows)
-                avg_ispu_real = sum([r.skor_ispu for r in realita_rows]) / len(realita_rows)
+                # Ambil ID Data referensi (jam 12 siang atau data pertama yang mewakili hari itu)
+                ref_id_data = realita_rows[0].id_data 
+                
+                # Rata-rata realita hari ini
+                avg_pm25 = sum([r.pm25 for r in realita_rows]) / len(realita_rows)
+                avg_pm10 = sum([r.pm10 for r in realita_rows]) / len(realita_rows)
+                avg_so2 = sum([r.so2 for r in realita_rows]) / len(realita_rows)
+                avg_co = sum([r.co for r in realita_rows]) / len(realita_rows)
+                avg_no2 = sum([r.no2 for r in realita_rows]) / len(realita_rows)
+                avg_ozon = sum([r.ozon for r in realita_rows]) / len(realita_rows)
 
-                # 3. Hitung Error (Selisih Absolut)
-                error_pm25 = abs(prediksi.pred_pm25 - avg_pm25_real)
-                error_ispu = abs(prediksi.pred_skor_ispu - avg_ispu_real)
-
-                # 4. Simpan ke validations_logs
+                # Menyelamatkan dari Crash: Gunakan kolom sesuai Model SQLAlchemy app.py
                 log_baru = ValidationsLogs(
-                    id_model=prediksi.id_model,
-                    id_wilayah=wilayah.id_wilayah,
-                    waktu_evaluasi=datetime.now(),
-                    mae_pm25=error_pm25,
-                    mae_ispu=error_ispu
+                    id_prediksi=prediksi.id_prediksi,
+                    id_data=ref_id_data, # Butuh foreign key id_data dari historis
+                    err_pm25=abs(prediksi.pred_pm25 - avg_pm25),
+                    err_pm10=abs(prediksi.pred_pm10 - avg_pm10),
+                    err_so2=abs(prediksi.pred_so2 - avg_so2),
+                    err_co=abs(prediksi.pred_co - avg_co),
+                    err_no2=abs(prediksi.pred_no2 - avg_no2),
+                    err_ozon=abs(prediksi.pred_ozon - avg_ozon)
                 )
                 db.session.add(log_baru)
-                print(f"   [Checked] Evaluasi {wilayah.nama_wilayah} selesai. Error ISPU: {error_ispu:.2f}")
+                print(f"   [Checked] Evaluasi {wilayah.nama_wilayah} berhasil dicatat.")
         
         db.session.commit()
     print("--- Evaluasi akurasi harian selesai ---")
@@ -248,21 +202,15 @@ def evaluasi_akurasi_harian():
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
     
-    # Jalankan setiap jam (menit ke-0) untuk menarik data cuaca nyata
     scheduler.add_job(tarik_data_per_jam, 'cron', minute=0)
-    
-    # Evaluasi akurasi tebakan kemarin vs realita hari ini (pukul 23:50)
     scheduler.add_job(evaluasi_akurasi_harian, 'cron', hour=23, minute=50)
-    
-    # Jalankan prediksi harian untuk besok pada pukul 23:55
     scheduler.add_job(eksekusi_prediksi_harian, 'cron', hour=23, minute=55)
     
     print("--- Scheduler ISPU Jatim telah aktif dan berjalan ---")
     
-    # Jalankan sekali saat startup untuk inisialisasi/testing data
     tarik_data_per_jam() 
     eksekusi_prediksi_harian()
-    evaluasi_akurasi_harian()
+    # evaluasi_akurasi_harian() # Jangan dinyalakan dulu di tes awal biar tidak dobel record
     
     try:
         scheduler.start()

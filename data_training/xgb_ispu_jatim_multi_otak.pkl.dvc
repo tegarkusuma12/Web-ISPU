@@ -1,5 +1,5 @@
 outs:
-- md5: a4a76c865f7fbe2e112fd78c691f11f8
-  size: 4915118
+- md5: 07a55d36dc3b9c774f2dbc2def904ff1
+  size: 4552285
   hash: md5
   path: xgb_ispu_jatim_multi_otak.pkl
