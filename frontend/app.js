@@ -113,9 +113,9 @@ function updateLeaderboard(data) {
         });
     };
 
-    // Cetak ke HTML (Perhatikan ID list-terberish dari HTML sebelumnya)
+    // Cetak ke HTML (Perhatikan ID list-terbersih dari HTML sebelumnya)
     renderList(top5Terburuk, 'list-terburuk');
-    renderList(top5Terbersih, 'list-terberish');
+    renderList(top5Terbersih, 'list-terbersih');
 }
 
 // ==========================================
