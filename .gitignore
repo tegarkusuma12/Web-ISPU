@@ -3,6 +3,9 @@ venv/
 env/
 .venv/
 
+# ml runs
+data_training/mlruns/
+
 # .env
 .env
 
