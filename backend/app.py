@@ -7,14 +7,21 @@ import requests
 from dotenv import load_dotenv
 from ispu_logic import kalkulasi_ispu_final
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ENV_PATH = os.path.join(BASE_DIR, '.env')
+
 # Memuat variabel dari file .env untuk keamanan API Key dan kredensial DB
-load_dotenv() 
+load_dotenv(ENV_PATH) 
 
 app = Flask(__name__)
 CORS(app) # Mengizinkan akses dari antarmuka frontend HTML
 
 # Konfigurasi Database PostgreSQL (Siap untuk integrasi Supabase via ENV, fallback ke Docker lokal)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+db_url = os.getenv('DATABASE_URL')
+if db_url and db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
