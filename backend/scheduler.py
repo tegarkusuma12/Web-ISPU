@@ -6,7 +6,7 @@ import os
 import time
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler # type: ignore
-from app import app, db, DataHistoris, Predictions, WilayahDetails, ModelRegistry
+from app import app, db, DataHistoris, Predictions, WilayahDetails, ModelRegistry, ValidationsLogs
 from ispu_logic import kalkulasi_ispu_final
 
 load_dotenv()
@@ -199,20 +199,70 @@ def eksekusi_prediksi_harian():
         db.session.commit()
     print("--- Siklus prediksi harian selesai ---")
 
+def evaluasi_akurasi_harian():
+    """Membandingkan prediksi kemarin dengan realita hari ini"""
+    print(f"[{datetime.now()}] Menjalankan evaluasi akurasi model...")
+    hari_ini = datetime.now().date()
+    hari_ini_dt = datetime.combine(hari_ini, datetime.min.time())
+
+    with app.app_context():
+        daftar_wilayah = WilayahDetails.query.all()
+        
+        for wilayah in daftar_wilayah:
+            # 1. Ambil Prediksi yang target waktunya adalah HARI INI
+            prediksi = Predictions.query.filter_by(
+                id_wilayah=wilayah.id_wilayah, 
+                target_waktu=hari_ini_dt
+            ).first()
+
+            # 2. Ambil Rata-rata Realita hari ini dari DataHistoris
+            realita_rows = DataHistoris.query.filter(
+                DataHistoris.id_wilayah == wilayah.id_wilayah,
+                DataHistoris.waktu_aktual >= hari_ini_dt,
+                DataHistoris.waktu_aktual < hari_ini_dt + timedelta(days=1)
+            ).all()
+
+            if prediksi and realita_rows:
+                # Hitung rata-rata realita hari ini
+                avg_pm25_real = sum([r.pm25 for r in realita_rows]) / len(realita_rows)
+                avg_ispu_real = sum([r.skor_ispu for r in realita_rows]) / len(realita_rows)
+
+                # 3. Hitung Error (Selisih Absolut)
+                error_pm25 = abs(prediksi.pred_pm25 - avg_pm25_real)
+                error_ispu = abs(prediksi.pred_skor_ispu - avg_ispu_real)
+
+                # 4. Simpan ke validations_logs
+                log_baru = ValidationsLogs(
+                    id_model=prediksi.id_model,
+                    id_wilayah=wilayah.id_wilayah,
+                    waktu_evaluasi=datetime.now(),
+                    mae_pm25=error_pm25,
+                    mae_ispu=error_ispu
+                )
+                db.session.add(log_baru)
+                print(f"   [Checked] Evaluasi {wilayah.nama_wilayah} selesai. Error ISPU: {error_ispu:.2f}")
+        
+        db.session.commit()
+    print("--- Evaluasi akurasi harian selesai ---")
+
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
     
-    # Jalankan setiap jam (menit ke-0)
+    # Jalankan setiap jam (menit ke-0) untuk menarik data cuaca nyata
     scheduler.add_job(tarik_data_per_jam, 'cron', minute=0)
     
-    # Jalankan prediksi harian pukul 23:55
+    # Evaluasi akurasi tebakan kemarin vs realita hari ini (pukul 23:50)
+    scheduler.add_job(evaluasi_akurasi_harian, 'cron', hour=23, minute=50)
+    
+    # Jalankan prediksi harian untuk besok pada pukul 23:55
     scheduler.add_job(eksekusi_prediksi_harian, 'cron', hour=23, minute=55)
     
     print("--- Scheduler ISPU Jatim telah aktif dan berjalan ---")
     
-    # Jalankan sekali saat startup untuk inisialisasi data
+    # Jalankan sekali saat startup untuk inisialisasi/testing data
     tarik_data_per_jam() 
     eksekusi_prediksi_harian()
+    evaluasi_akurasi_harian()
     
     try:
         scheduler.start()
