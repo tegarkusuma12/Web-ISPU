@@ -17,7 +17,7 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY")
 TZ_WIB = pytz.timezone('Asia/Jakarta')
 
 # 1. Muat Model XGBoost 6 Otak (Multi-Output)
-MODEL_PATH = 'data_training/xgb_ispu_jatim_multi_otak.pkl' # Pastikan path ini sesuai
+MODEL_PATH = 'models/xgb_ispu_jatim_multi_otak.pkl' # Pastikan path ini sesuai
 if os.path.exists(MODEL_PATH):
     paket_model = joblib.load(MODEL_PATH)
     dict_model_spesialis = paket_model['dict_model_spesialis']
