@@ -22,8 +22,44 @@ def mass_insert_data(csv_path):
     start_time = time.time()
     df = pd.read_csv(csv_path)
     
-    # Memastikan semua nama kolom berhuruf kecil sesuai skema database Supabase
-    df.columns = [col.lower() for col in df.columns]
+    # ------------------ BAGIAN PENERJEMAH (MAPPING) ------------------
+    print("🔍 Mengambil kamus id_wilayah dari tabel wilayah_details di Supabase...")
+    
+    # Menarik data dari tabel wilayah_details untuk mencocokkan ID
+    df_wilayah = pd.read_sql("SELECT id_wilayah, nama_wilayah FROM wilayah_details", engine)
+    
+    # Membuat kamus (dictionary) { 'Kota Surabaya': 1, 'Kabupaten Malang': 2, dst }
+    kamus_wilayah = dict(zip(df_wilayah['nama_wilayah'], df_wilayah['id_wilayah']))
+    
+    # Membuat kolom baru 'id_wilayah' berdasarkan terjemahan kolom 'Kota'
+    df['id_wilayah'] = df['Kota'].map(kamus_wilayah)
+    
+    # CEK KEAMANAN: Apakah ada kota di CSV yang namanya tidak sama persis dengan di Supabase?
+    kota_tak_dikenal = df[df['id_wilayah'].isna()]['Kota'].unique()
+    if len(kota_tak_dikenal) > 0:
+        print(f"⚠️ PERINGATAN! Ada kota di CSV yang tidak ditemukan di database: {kota_tak_dikenal}")
+        print("Pastikan penulisan namanya sama persis (misal: 'Kota Surabaya' bukan 'Surabaya').")
+        print("Menghapus baris yang kotanya tidak dikenali agar tidak error...")
+        df = df.dropna(subset=['id_wilayah'])
+    
+    # ------------------ BAGIAN RENAME KOLOM ------------------
+    # Mengubah nama kolom CSV agar sama persis dengan kolom Supabase
+    df = df.rename(columns={
+        'Waktu': 'waktu_aktual',
+        'PM2.5 (µg/m³)': 'pm25',
+        'PM10 (µg/m³)': 'pm10',
+        'SO2 (µg/m³)': 'so2',
+        'CO (µg/m³)': 'co',
+        'NO2 (µg/m³)': 'no2',
+        'Ozon (µg/m³)': 'ozon'
+    })
+    
+    # Membuang kolom 'Kota' karena kita sudah punya 'id_wilayah'
+    df = df.drop(columns=['Kota'])
+    
+    # Pastikan tipe id_wilayah adalah integer (bukan float)
+    df['id_wilayah'] = df['id_wilayah'].astype(int)
+    # -----------------------------------------------------------------
     
     print(f"📊 Total amunisi data yang siap disetor: {len(df)} baris.")
 
@@ -39,14 +75,14 @@ def mass_insert_data(csv_path):
             
             print("🔄 Langkah 2: Memulai proses sinkronisasi (Bulk Upsert) ke tabel utama...")
             # Kueri SQL tingkat lanjut untuk memindahkan data dari tabel sementara ke tabel utama.
-            # Jika ada id_wilayah & waktu_aktual yang tabrakan (konflik), otomatis ditimpa (DO UPDATE)
+            # CATATAN: Kolom skor_ispu dan kategori_ispu sudah dihapus dari kueri ini.
             query_upsert = """
                 INSERT INTO public.data_historis (
-                    waktu_aktual, id_wilayah, pm25, pm10, so2, co, no2, ozon, skor_ispu, kategori_ispu
+                    waktu_aktual, id_wilayah, pm25, pm10, so2, co, no2, ozon
                 )
                 SELECT 
                     CAST(waktu_aktual AS TIMESTAMP WITH TIME ZONE), 
-                    id_wilayah, pm25, pm10, so2, co, no2, ozon, skor_ispu, kategori_ispu
+                    id_wilayah, pm25, pm10, so2, co, no2, ozon
                 FROM temp_staging_historis
                 ON CONFLICT (id_wilayah, waktu_aktual) 
                 DO UPDATE SET 
@@ -55,9 +91,7 @@ def mass_insert_data(csv_path):
                     so2 = EXCLUDED.so2,
                     co = EXCLUDED.co,
                     no2 = EXCLUDED.no2,
-                    ozon = EXCLUDED.ozon,
-                    skor_ispu = EXCLUDED.skor_ispu,
-                    kategori_ispu = EXCLUDED.kategori_ispu;
+                    ozon = EXCLUDED.ozon;
             """
             conn.execute(text(query_upsert))
             print("✅ Langkah 3: Sinkronisasi selesai! Data berhasil masuk tanpa duplikat.")
@@ -76,7 +110,7 @@ def mass_insert_data(csv_path):
 
 if __name__ == "__main__":
     # GANTI dengan nama file CSV masif milikmu yang berada di folder lokal
-    NAMA_FILE_CSV = "dataset_ispu_jatim_masif.csv" 
+    NAMA_FILE_CSV = "dataset_polutan_jatim.csv" 
     
     if os.path.exists(NAMA_FILE_CSV):
         mass_insert_data(NAMA_FILE_CSV)
