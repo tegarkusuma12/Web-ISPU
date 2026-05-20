@@ -6,6 +6,9 @@ env/
 # ml runs
 data_training/mlruns/
 
+# Mengabaikan model lokal karena sudah diurus MLflow DagsHub
+*.pkl
+
 # .env
 .env
 
