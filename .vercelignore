@@ -1,0 +1,6 @@
+*.pkl
+*.csv
+*.ipynb
+data_training/
+frontend/
+.env

@@ -1,5 +1,6 @@
-# backend/ispu_logic.py
-import pandas as pd
+# beckend/ispu_logic.py
+# HAPUS ATAU COMMENT PANDAS SEMENTARA AGAR LOLOS VERCEL
+# import pandas as pd 
 
 # Tabel Referensi Batas ISPU 
 # Format: [Batas_Bawah, Batas_Atas]
@@ -61,7 +62,6 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
     Output: Dictionary lengkap berisi seluruh skor individu & final 
             untuk dimasukkan ke tabel interpolasi_ispu di Supabase.
     """
-    # Siapkan template skor individu
     skor_individu: dict = {
         'skor_pm25': None,
         'skor_pm10': None,
@@ -77,25 +77,21 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
     for polutan, konsentrasi in hasil_prediksi_dict.items():
         kunci_polutan = polutan.split(' ')[0].replace('.', '').upper()
         
-        # Hitung skor
         ispu_item = hitung_ispu_per_polutan(kunci_polutan, konsentrasi)
         
-        # Masukkan ke dalam dictionary skor individu
         key_db = f"skor_{kunci_polutan.lower()}"
         if key_db in skor_individu:
             skor_individu[key_db] = ispu_item
             
-        # Tentukan polutan kritis (pemenang)
         if ispu_item > ispu_tertinggi:
             ispu_tertinggi = ispu_item
             polutan_kritis = kunci_polutan
             
     status = tentukan_status_ispu(ispu_tertinggi)
     
-    # Gabungkan hasil akhir dengan skor individu
     hasil_akhir = {
         "skor_ispu_final": ispu_tertinggi,
-        "polutan_kritis": polutan_kritis,
+        "parameter_kritis": polutan_kritis, # <-- PERBAIKAN BUG: Ubah jadi parameter_kritis
         "kategori_ispu": status
     }
     hasil_akhir.update(skor_individu)
@@ -104,52 +100,40 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
 
 
 # ======================================================================
-# BAGIAN BARU: REKAYASA FITUR (PENYAMBUNG LIDAH AI)
+# BAGIAN BARU: REKAYASA FITUR (DI-COMMENT SEMENTARA AGAR TIDAK MEMANGGIL PANDAS)
 # ======================================================================
-
+"""
 def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
-    """
-    Fungsi untuk meracik raw data dari Supabase menjadi format yang persis
-    sama dengan yang dipelajari AI saat training (Sekarang berbasis JAM).
-    """
     df_temp = df_history_jam.copy()
     
-    # 1. Sesuaikan dengan kolom ERD Baru (waktu_aktual)
     df_temp['waktu_aktual'] = pd.to_datetime(df_temp['waktu_aktual'])
     df_temp = df_temp.sort_values(by='waktu_aktual').reset_index(drop=True)
     
-    # 2. Fitur Temporal (Sekarang bisa menambahkan Jam)
     df_temp['Bulan'] = df_temp['waktu_aktual'].dt.month
     df_temp['Jam'] = df_temp['waktu_aktual'].dt.hour
     df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int)
     
-    # 3. Fitur History & Rolling 
-    # Karena data per jam, mundur 3 hari = 72 Jam.
-    n_lags = 3  # Opsional: ubah ke 24 jika kamu melatih H-1 hingga H-24
+    n_lags = 3  
     window_3_hari = 72 
     
     for p in daftar_polutan:
         for i in range(1, n_lags + 1):
             df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
             
-        # Rolling rata-rata dan max untuk 72 jam terakhir (3 Hari)
         df_temp[f'{p}_RollMean_3'] = df_temp[p].shift(1).rolling(window=window_3_hari).mean()
         df_temp[f'{p}_RollMax_3'] = df_temp[p].shift(1).rolling(window=window_3_hari).max()
         
-    # 4. One-Hot Encoding 
     if 'nama_wilayah' in df_temp.columns:
         df_temp = pd.get_dummies(df_temp, columns=['nama_wilayah'])
         df_temp.columns = [col.replace('nama_wilayah_', 'Kota_') for col in df_temp.columns]
     
-    # 5. Ambil BARIS TERAKHIR SAJA (Jam Ini / Prediksi untuk Jam Berikutnya)
     X_prediksi_besok = df_temp.iloc[[-1]].copy()
     
-    # 6. PENYELAMAT DIMENSI: Menambahkan kolom kota lain yang kosong
     for col in kolom_training_asli:
         if col not in X_prediksi_besok.columns:
             X_prediksi_besok[col] = 0
             
-    # Hapus kolom yang tidak berguna dan urutkan sesuai saat training
     X_prediksi_besok = X_prediksi_besok[kolom_training_asli]
     
     return X_prediksi_besok
+"""
