@@ -8,7 +8,12 @@ import requests
 from dotenv import load_dotenv
 
 # Pastikan di dalam ispu_logic.py TIDAK ADA "import pandas as pd" yang aktif
-from ispu_logic import kalkulasi_ispu_final
+try:
+    # Ini akan dieksekusi saat kamu jalankan di laptop lokal
+    from ispu_logic import kalkulasi_ispu_final
+except ModuleNotFoundError:
+    # Ini akan otomatis dipakai saat Vercel mengeksekusinya dari luar
+    from backend.ispu_logic import kalkulasi_ispu_final
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(BASE_DIR, '.env')
