@@ -58,23 +58,27 @@ async function loadDashboard() {
 // ==========================================
 function populateSearch(data) {
     const datalist = document.getElementById('daftar-kota');
-    datalist.innerHTML = ''; // Kosongkan dulu
+    datalist.innerHTML = ''; 
     
-    // Masukkan 38 kota ke dalam list pencarian
     data.forEach(item => {
         const option = document.createElement('option');
         option.value = item.kota;
         datalist.appendChild(option);
     });
 
-    // Deteksi jika user mengetik atau memilih kota dari dropdown pencarian
     const searchInput = document.getElementById('city-search');
-    searchInput.addEventListener('change', (e) => {
+    
+    // UBAH 'change' menjadi 'input' agar lebih responsif
+    searchInput.addEventListener('input', (e) => {
         const selected = e.target.value;
-        // Pastikan kota yang diketik valid (ada di dalam array data)
-        if (data.find(d => d.kota === selected)) {
-            pilihKota(selected);
-            searchInput.value = ''; // Kosongkan bar pencarian setelah ditekan
+        
+        // Pengecekan eksak (memastikan user mengklik opsi, bukan sekadar mengetik 'Sura')
+        const kotaCocok = data.find(d => d.kota.toLowerCase() === selected.toLowerCase());
+        
+        if (kotaCocok) {
+            pilihKota(kotaCocok.kota); // Gunakan nama asli dari database dengan casing yang benar
+            searchInput.value = ''; 
+            searchInput.blur(); // Hilangkan fokus kursor dari kolom pencarian
         }
     });
 }
@@ -124,21 +128,28 @@ function updateLeaderboard(data) {
 function pilihKota(kota) {
     document.getElementById('selectedCityTitle').innerText = `Detail Wilayah: ${kota}`;
     
-    // Trik UI: Beri efek kedip/loading sekejap agar kamu tahu sistem merespons
-    // meskipun angka kotanya sama-sama 69
+    // Trik UI: Beri efek kedip/loading sekejap
     document.getElementById('ispuValue').innerText = "...";
     document.getElementById('ispuStatus').innerText = "...";
+    document.getElementById('kritisValue').innerText = "...";
     
     setTimeout(() => {
         let dataKotaIni = allCitiesData.find(d => d.kota === kota);
         
         if(dataKotaIni) {
-            document.getElementById('ispuValue').innerText = dataKotaIni.nilai_ispu || "--";
+            // Gunakan fallback '0' jika nilai null, bukan '--' agar terlihat profesional
+            document.getElementById('ispuValue').innerText = dataKotaIni.nilai_ispu || 0;
             document.getElementById('ispuStatus').innerText = dataKotaIni.kategori || "Menunggu Data";
-            document.getElementById('kritisValue').innerText = dataKotaIni.parameter_kritis || "--";
+            
+            // Perbaikan pemanggilan parameter kritis dari JSON
+            document.getElementById('kritisValue').innerText = dataKotaIni.parameter_kritis || "-";
+            
+            // (Opsional, jika kamu mau menampilkan parameter spesifik langsung)
+            // document.getElementById('pm25Value').innerText = dataKotaIni.pm25 || 0; 
+            
             document.getElementById('statusCard').style.backgroundColor = getStatusColor(dataKotaIni.kategori);
         }
-    }, 150); // Jeda 150 milidetik sebelum menampilkan angka
+    }, 150); 
 
     fetchIspuData(kota, filterHariAktif);
     document.getElementById('detail-view').scrollIntoView({ behavior: 'smooth' });

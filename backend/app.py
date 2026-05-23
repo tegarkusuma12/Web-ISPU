@@ -139,8 +139,9 @@ def get_all_ispu_besok():
         "data": hasil
     }), 200
 
-@app.route('/api/ispu/<nama_kota>')
+@app.route('/api/ispu/<nama_kota>', methods=['GET'], strict_slashes=False)
 def get_ispu_kota(nama_kota):
+    print(f"DEBUG: Backend menerima request untuk kota: {nama_kota}")
     filter_tipe = request.args.get('days', '7') 
     
     wilayah = WilayahDetails.query.filter_by(nama_wilayah=nama_kota).first()
