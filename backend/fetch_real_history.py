@@ -12,16 +12,16 @@ def fetch_and_save_raw_data():
         daftar_wilayah = WilayahDetails.query.all()
         API_KEY = os.getenv("OPENWEATHER_API_KEY")
         
-        # 1. Tentukan rentang waktu (30 hari terakhir sampai jam ini)
+        # 1. Tentukan rentang waktu 
         end_date = datetime.now().replace(minute=0, second=0, microsecond=0)
-        start_date = end_date - timedelta(days=30)
+        start_date = end_date - timedelta(days=30) # 30 hari terakhir sampai jam ini
         
         # OpenWeatherMap API History membutuhkan format Unix Timestamp
         start_unix = int(start_date.timestamp())
         end_unix = int(end_date.timestamp())
         
         for wilayah in daftar_wilayah:
-            print(f"Menarik data historis 30 hari untuk: {wilayah.nama_wilayah}...")
+            print(f"Menarik data historis untuk: {wilayah.nama_wilayah}...")
             
             try:
                 # ---------------------------------------------------------
