@@ -3,20 +3,22 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
-import requests
+import pytz
 from dotenv import load_dotenv
 from ispu_logic import kalkulasi_ispu_final
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(BASE_DIR, '.env')
 
-# Memuat variabel dari file .env untuk keamanan API Key dan kredensial DB
 load_dotenv(ENV_PATH) 
 
 app = Flask(__name__)
-CORS(app) # Mengizinkan akses dari antarmuka frontend HTML
+CORS(app) 
 
-# Konfigurasi Database PostgreSQL (Siap untuk integrasi Supabase via ENV, fallback ke Docker lokal)
+# Konfigurasi Zona Waktu
+TZ_WIB = pytz.timezone('Asia/Jakarta')
+
+# Konfigurasi Database
 db_url = os.getenv('DATABASE_URL_POOLER')
 if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -77,7 +79,6 @@ class Predictions(db.Model):
     pred_co = db.Column(db.Float)
     pred_no2 = db.Column(db.Float)
     pred_ozon = db.Column(db.Float)
-
     status = db.Column(db.String(50), default='PENDING')    
     validasi = db.relationship('ValidationsLogs', backref='prediksi_sumber', uselist=False)
 
@@ -97,10 +98,6 @@ class ValidationsLogs(db.Model):
 # ==========================================
 # ENDPOINT API (Untuk Frontend)
 # ==========================================
-from flask import jsonify, request
-from datetime import datetime, timedelta
-# Pastikan db, Predictions, DataHistoris, dan WilayahDetails sudah di-import di atas file app.py
-from ispu_logic import kalkulasi_ispu_final
 
 @app.route('/api/status', methods=['GET'])
 def cek_status():
@@ -108,21 +105,17 @@ def cek_status():
 
 @app.route('/api/ispu/all_besok', methods=['GET'])
 def get_all_ispu_besok():
-    """
-    Endpoint Sapu Jagat: 
-    Menarik prediksi hari esok untuk seluruh wilayah menggunakan metode JOIN.
-    """
-    besok = datetime.now().date() + timedelta(days=1)
-    besok_dt = datetime.combine(besok, datetime.min.time()) # Ubah ke datetime agar cocok dengan database
+    """Menarik prediksi jam pertama hari esok untuk seluruh wilayah"""
+    sekarang_wib = datetime.now(TZ_WIB)
+    besok = sekarang_wib.date() + timedelta(days=1)
+    besok_dt = datetime.combine(besok, datetime.min.time()) 
     
-    # Tarik data prediksi gabung dengan data wilayah (JOIN)
     data_prediksi = db.session.query(Predictions, WilayahDetails)\
                       .join(WilayahDetails, Predictions.id_wilayah == WilayahDetails.id_wilayah)\
                       .filter(Predictions.target_waktu == besok_dt).all()
     
     hasil = []
     for prediksi, wilayah in data_prediksi:
-        # Hitung parameter kritis on-the-fly (karena tidak disimpan di DB baru)
         dict_polutan = {
             'PM25': prediksi.pred_pm25, 'PM10': prediksi.pred_pm10, 
             'CO': prediksi.pred_co, 'NO2': prediksi.pred_no2, 
@@ -131,9 +124,9 @@ def get_all_ispu_besok():
         ispu_calc = kalkulasi_ispu_final(dict_polutan)
         
         hasil.append({
-            "kota": wilayah.nama_wilayah, # Diambil dari tabel WilayahDetails
-            "nilai_ispu": prediksi.pred_skor_ispu,
-            "kategori": prediksi.pred_kategori_ispu,
+            "kota": wilayah.nama_wilayah,
+            "nilai_ispu": ispu_calc['nilai_ispu'],      # KOREKSI: Ambil dari hasil hitung dinamis
+            "kategori": ispu_calc['kategori'],          # KOREKSI: Ambil dari hasil hitung dinamis
             "parameter_kritis": ispu_calc['parameter_kritis'],
             "pm25": prediksi.pred_pm25, "pm10": prediksi.pred_pm10, 
             "co": prediksi.pred_co, "no2": prediksi.pred_no2, 
@@ -148,18 +141,17 @@ def get_all_ispu_besok():
 
 @app.route('/api/ispu/<nama_kota>')
 def get_ispu_kota(nama_kota):
-    # 1. Tangkap parameter filter ('24jam', '7', atau '30')
     filter_tipe = request.args.get('days', '7') 
     
-    # 2. Cari ID Wilayah berdasarkan nama kota
     wilayah = WilayahDetails.query.filter_by(nama_wilayah=nama_kota).first()
     if not wilayah:
         return jsonify({"error": "Kota tidak terdaftar di database kami."}), 404
 
     # ==============================================================
-    # KARTU BIRU: SELALU AMBIL PREDIKSI AI BESOK DARI DATABASE
+    # KARTU BIRU: AMBIL PREDIKSI JAM PERTAMA BESOK
     # ==============================================================
-    besok = datetime.now().date() + timedelta(days=1)
+    sekarang_wib = datetime.now(TZ_WIB)
+    besok = sekarang_wib.date() + timedelta(days=1)
     besok_dt = datetime.combine(besok, datetime.min.time())
     
     db_prediksi = Predictions.query.filter_by(
@@ -177,19 +169,18 @@ def get_ispu_kota(nama_kota):
         ispu_calc = kalkulasi_ispu_final(dict_polutan)
         
         data_prediksi = {
-            "nilai_ispu": db_prediksi.pred_skor_ispu,
-            "kategori": db_prediksi.pred_kategori_ispu,
+            "nilai_ispu": ispu_calc['nilai_ispu'],      # KOREKSI: Pakai hitung dinamis
+            "kategori": ispu_calc['kategori'],          # KOREKSI: Pakai hitung dinamis
             "parameter_kritis": ispu_calc['parameter_kritis']
         }
 
     # ==============================================================
-    # KANVAS GRAFIK: AMBIL DARI TABEL DATA_HISTORIS
+    # KANVAS GRAFIK: HITUNG ISPU HISTORIS SECARA DINAMIS
     # ==============================================================
     hasil_grafik = []
-    waktu_sekarang = datetime.now()
+    waktu_sekarang = datetime.now(TZ_WIB)
 
     if filter_tipe == '24jam':
-        # Tarik data 24 jam terakhir (Realita) dari Database
         batas_waktu = waktu_sekarang - timedelta(hours=24)
         
         data_historis = DataHistoris.query.filter(
@@ -199,13 +190,19 @@ def get_ispu_kota(nama_kota):
         ).order_by(DataHistoris.waktu_aktual.asc()).all()
         
         for row in data_historis:
+            # KOREKSI: Hitung skor ISPU historis per jam secara langsung
+            dict_polutan_hist = {
+                'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
+                'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
+            }
+            ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
+            
             hasil_grafik.append({
                 "tanggal": row.waktu_aktual.strftime("%H:00"), 
-                "nilai_ispu": row.skor_ispu
+                "nilai_ispu": ispu_hist['nilai_ispu']
             })
                 
     else:
-        # Tarik data harian (7 atau 30 hari) dari Database
         days_filter = int(filter_tipe)
         batas_waktu = waktu_sekarang.date() - timedelta(days=days_filter)
         batas_waktu_dt = datetime.combine(batas_waktu, datetime.min.time())
@@ -213,16 +210,22 @@ def get_ispu_kota(nama_kota):
         data_historis = DataHistoris.query.filter(
             DataHistoris.id_wilayah == wilayah.id_wilayah,
             DataHistoris.waktu_aktual >= batas_waktu_dt,
-            DataHistoris.waktu_aktual < datetime.combine(waktu_sekarang.date(), datetime.min.time()) # Hanya sampai kemarin
+            DataHistoris.waktu_aktual < datetime.combine(waktu_sekarang.date(), datetime.min.time())
         ).order_by(DataHistoris.waktu_aktual.asc()).all()
         
-        # Kelompokkan data jam-jaman menjadi rata-rata harian
         harian_dict = {}
         for row in data_historis:
             tgl_str = row.waktu_aktual.strftime("%d %b")
             if tgl_str not in harian_dict:
                 harian_dict[tgl_str] = []
-            harian_dict[tgl_str].append(row.skor_ispu)
+            
+            # KOREKSI: Hitung skor ISPU harian secara langsung sebelum dirata-rata
+            dict_polutan_hist = {
+                'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
+                'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
+            }
+            ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
+            harian_dict[tgl_str].append(ispu_hist['nilai_ispu'])
             
         for tgl_str, list_ispu in harian_dict.items():
             avg_ispu = sum(list_ispu) / len(list_ispu)
@@ -231,9 +234,6 @@ def get_ispu_kota(nama_kota):
                 "nilai_ispu": round(avg_ispu)
             })
 
-    # ==============================================================
-    # KEMBALIKAN DATA KE FRONTEND
-    # ==============================================================
     return jsonify({
         "kota": nama_kota,
         "prediksi_besok": data_prediksi,
@@ -241,10 +241,7 @@ def get_ispu_kota(nama_kota):
     }), 200
 
 if __name__ == '__main__':
-    # 1. Bagian untuk mencetak struktur ERD ke Supabase
     with app.app_context():
-        #db.create_all()
         print("✅ Semua tabel proyek prediksi ISPU berhasil dicetak di Supabase!")
     
-    # 2. Tetap gunakan settingan host dan port asli milikmu
     app.run(debug=True, host='0.0.0.0', port=5000)

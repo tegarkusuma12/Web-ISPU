@@ -156,12 +156,13 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                         id_wilayah=wilayah.id_wilayah, target_waktu=target_waktu_jam
                     ).first()
 
-                    val_pm25 = float(max(0, dict_prediksi_scalar['PM25']))
-                    val_pm10 = float(max(0, dict_prediksi_scalar['PM10']))
-                    val_so2  = float(max(0, dict_prediksi_scalar['SO2']))
-                    val_co   = float(max(0, dict_prediksi_scalar['CO']))
-                    val_no2  = float(max(0, dict_prediksi_scalar['NO2']))
-                    val_ozon = float(max(0, dict_prediksi_scalar['O3']))
+                    val_pm25 = float(max(0, dict_prediksi_scalar.get('PM25', 0)))
+                    val_pm10 = float(max(0, dict_prediksi_scalar.get('PM10', 0)))
+                    val_so2  = float(max(0, dict_prediksi_scalar.get('SO2', 0)))
+                    val_co   = float(max(0, dict_prediksi_scalar.get('CO', 0)))
+                    val_no2  = float(max(0, dict_prediksi_scalar.get('NO2', 0)))
+                    val_ozon = dict_prediksi_scalar.get('O3', dict_prediksi_scalar.get('OZON', 0))
+                    val_ozon = float(max(0, val_ozon))
 
                     if pred_eksisting:
                         # UPDATE: Timpa angka lama dengan tebakan yang lebih baru/fresh
