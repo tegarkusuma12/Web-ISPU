@@ -75,16 +75,12 @@ def fetch_and_save_raw_data():
                     
                 print(f"Menambahkan {data_baru_count} data jam baru untuk {wilayah.nama_wilayah}.")
                 
+                db.session.commit()
+                print(f"✅ Data {wilayah.nama_wilayah} berhasil diamankan ke database.")
+
             except Exception as e:
+                db.session.rollback()
                 print(f"Gagal menarik data historis untuk {wilayah.nama_wilayah}: {e}")
-                
-        # 5. Simpan semua ke database sekaligus (Bulk Insert)
-        try:
-            db.session.commit()
-            print("Proses fetch data historis selesai dan tersimpan ke database!")
-        except Exception as e:
-            db.session.rollback()
-            print(f"Terjadi kesalahan fatal saat menyimpan ke database: {e}")
 
 if __name__ == "__main__":
     fetch_and_save_raw_data()

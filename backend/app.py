@@ -62,8 +62,6 @@ class DataHistoris(db.Model):
     co = db.Column(db.Float)
     no2 = db.Column(db.Float)
     ozon = db.Column(db.Float)
-    skor_ispu = db.Column(db.Integer)
-    kategori_ispu = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Predictions(db.Model):
