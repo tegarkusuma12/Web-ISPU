@@ -77,10 +77,8 @@ class Predictions(db.Model):
     pred_co = db.Column(db.Float)
     pred_no2 = db.Column(db.Float)
     pred_ozon = db.Column(db.Float)
-    pred_skor_ispu = db.Column(db.Integer)
-    pred_kategori_ispu = db.Column(db.String(50))
-    status = db.Column(db.String(50), default='PENDING')
-    
+
+    status = db.Column(db.String(50), default='PENDING')    
     validasi = db.relationship('ValidationsLogs', backref='prediksi_sumber', uselist=False)
 
 class ValidationsLogs(db.Model):
