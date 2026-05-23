@@ -1,3 +1,4 @@
+# backend/scheduler.py
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
@@ -96,7 +97,7 @@ def evaluasi_akurasi_per_jam(waktu_jam_ini):
                     )
                     
                     # Update status prediksi menjadi Selesai/Tervalidasi
-                    prediksi_jam_ini.status = 'Tervalidasi'
+                    prediksi_jam_ini.status = 'VALIDATED'
                     
                     db.session.add(log_baru)
                     db.session.commit()
@@ -170,6 +171,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                         pred_eksisting.pred_co = val_co
                         pred_eksisting.pred_no2 = val_no2
                         pred_eksisting.pred_ozon = val_ozon
+                        pred_eksisting.status = "PENDING"
                         pred_eksisting.waktu_dibuat = datetime.utcnow() # Perbarui waktu stempel
                     else:
                         # INSERT: Jika belum ada, buat baru
@@ -178,7 +180,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                             id_wilayah=wilayah.id_wilayah,
                             target_waktu=target_waktu_jam, 
                             pred_pm25=val_pm25, pred_pm10=val_pm10, pred_so2=val_so2,
-                            pred_co=val_co, pred_no2=val_no2, pred_ozon=val_ozon
+                            pred_co=val_co, pred_no2=val_no2, pred_ozon=val_ozon, status="PENDING"
                         )
                         db.session.add(prediksi_baru)
                 
