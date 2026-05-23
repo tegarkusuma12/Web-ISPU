@@ -104,7 +104,7 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
 
 
 # ======================================================================
-# BAGIAN BARU: REKAYASA FITUR (PENYAMBUNG LIDAH AI)
+# BAGIAN BARU: REKAYASA FITUR 
 # ======================================================================
 
 def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
