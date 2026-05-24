@@ -1,9 +1,10 @@
 import os
+import pytz
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from flask_caching import Cache
 from datetime import datetime, timedelta
-import pytz
 from dotenv import load_dotenv
 from ispu_logic import kalkulasi_ispu_final
 
@@ -14,6 +15,10 @@ load_dotenv(ENV_PATH)
 
 app = Flask(__name__)
 CORS(app) 
+
+app.config['CACHE_TYPE'] = 'SimpleCache'
+app.config['CACHE_DEFAULT_TIMEOUT'] = 900 # Waktu simpan default: 15 menit (900 detik)
+cache = Cache(app)
 
 # Konfigurasi Zona Waktu
 TZ_WIB = pytz.timezone('Asia/Jakarta')
@@ -104,6 +109,7 @@ def cek_status():
     return jsonify({"pesan": "Server Backend ISPU Jatim Aktif!"}), 200
 
 @app.route('/api/ispu/rolling_24h', methods=['GET'])
+@cache.cached(timeout=900)
 def get_ispu_rolling_24h():
     """
     ENDPOINT BARU: Menarik prediksi 24 jam ke depan dengan penanganan Timezone yang aman!
@@ -175,6 +181,7 @@ def get_ispu_rolling_24h():
         return jsonify({"error": "Gagal memproses data timeline per jam."}), 500
 
 @app.route('/api/ispu/<nama_kota>', methods=['GET'], strict_slashes=False)
+@cache.cached(timeout=900, query_string=True)
 def get_ispu_kota(nama_kota):
     print(f"DEBUG: Backend menerima request untuk kota: {nama_kota}")
     filter_tipe = request.args.get('days', '7') 
