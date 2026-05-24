@@ -125,9 +125,9 @@ def get_all_ispu_besok():
         
         hasil.append({
             "kota": wilayah.nama_wilayah,
-            "nilai_ispu": ispu_calc['nilai_ispu'],      # KOREKSI: Ambil dari hasil hitung dinamis
-            "kategori": ispu_calc['kategori'],          # KOREKSI: Ambil dari hasil hitung dinamis
-            "parameter_kritis": ispu_calc['parameter_kritis'],
+            "nilai_ispu": ispu_calc['skor_ispu_final'],   # SUDAH DISESUAIKAN
+            "kategori": ispu_calc['kategori_ispu'],       # SUDAH DISESUAIKAN
+            "parameter_kritis": ispu_calc['polutan_kritis'], # SUDAH DISESUAIKAN
             "pm25": prediksi.pred_pm25, "pm10": prediksi.pred_pm10, 
             "co": prediksi.pred_co, "no2": prediksi.pred_no2, 
             "o3": prediksi.pred_ozon, "so2": prediksi.pred_so2
@@ -144,102 +144,113 @@ def get_ispu_kota(nama_kota):
     print(f"DEBUG: Backend menerima request untuk kota: {nama_kota}")
     filter_tipe = request.args.get('days', '7') 
     
-    wilayah = WilayahDetails.query.filter_by(nama_wilayah=nama_kota).first()
-    if not wilayah:
-        return jsonify({"error": "Kota tidak terdaftar di database kami."}), 404
-
-    # ==============================================================
-    # KARTU BIRU: AMBIL PREDIKSI JAM PERTAMA BESOK
-    # ==============================================================
-    sekarang_wib = datetime.now(TZ_WIB)
-    besok = sekarang_wib.date() + timedelta(days=1)
-    besok_dt = datetime.combine(besok, datetime.min.time())
-    
-    db_prediksi = Predictions.query.filter_by(
-        id_wilayah=wilayah.id_wilayah, 
-        target_waktu=besok_dt
-    ).first()
-    
-    data_prediksi = {}
-    if db_prediksi:
-        dict_polutan = {
-            'PM25': db_prediksi.pred_pm25, 'PM10': db_prediksi.pred_pm10, 
-            'CO': db_prediksi.pred_co, 'NO2': db_prediksi.pred_no2, 
-            'O3': db_prediksi.pred_ozon, 'SO2': db_prediksi.pred_so2
-        }
-        ispu_calc = kalkulasi_ispu_final(dict_polutan)
+    try:
+        # PENGAMANAN 1: Pencarian Fleksibel
+        wilayah = WilayahDetails.query.filter(WilayahDetails.nama_wilayah.ilike(f"%{nama_kota}%")).first()
         
-        data_prediksi = {
-            "nilai_ispu": ispu_calc['nilai_ispu'],      # KOREKSI: Pakai hitung dinamis
-            "kategori": ispu_calc['kategori'],          # KOREKSI: Pakai hitung dinamis
-            "parameter_kritis": ispu_calc['parameter_kritis']
-        }
+        if not wilayah:
+            print(f"DEBUG: Kota '{nama_kota}' gagal ditemukan di database.")
+            return jsonify({"error": "Kota tidak terdaftar di database kami."}), 404
 
-    # ==============================================================
-    # KANVAS GRAFIK: HITUNG ISPU HISTORIS SECARA DINAMIS
-    # ==============================================================
-    hasil_grafik = []
-    waktu_sekarang = datetime.now(TZ_WIB)
+        print(f"DEBUG: Berhasil menemukan kota di DB -> {wilayah.nama_wilayah}")
 
-    if filter_tipe == '24jam':
-        batas_waktu = waktu_sekarang - timedelta(hours=24)
+        # ==============================================================
+        # KARTU BIRU: AMBIL PREDIKSI JAM PERTAMA BESOK
+        # ==============================================================
+        sekarang_wib = datetime.now(TZ_WIB)
+        besok = sekarang_wib.date() + timedelta(days=1)
+        besok_dt = datetime.combine(besok, datetime.min.time())
         
-        data_historis = DataHistoris.query.filter(
-            DataHistoris.id_wilayah == wilayah.id_wilayah,
-            DataHistoris.waktu_aktual >= batas_waktu,
-            DataHistoris.waktu_aktual <= waktu_sekarang
-        ).order_by(DataHistoris.waktu_aktual.asc()).all()
+        db_prediksi = Predictions.query.filter_by(
+            id_wilayah=wilayah.id_wilayah, 
+            target_waktu=besok_dt
+        ).first()
         
-        for row in data_historis:
-            # KOREKSI: Hitung skor ISPU historis per jam secara langsung
-            dict_polutan_hist = {
-                'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
-                'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
+        data_prediksi = {}
+        if db_prediksi:
+            dict_polutan = {
+                'PM25': db_prediksi.pred_pm25, 'PM10': db_prediksi.pred_pm10, 
+                'CO': db_prediksi.pred_co, 'NO2': db_prediksi.pred_no2, 
+                'O3': db_prediksi.pred_ozon, 'SO2': db_prediksi.pred_so2
             }
-            ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
+            ispu_calc = kalkulasi_ispu_final(dict_polutan)
             
-            hasil_grafik.append({
-                "tanggal": row.waktu_aktual.strftime("%H:00"), 
-                "nilai_ispu": ispu_hist['nilai_ispu']
-            })
+            data_prediksi = {
+                "nilai_ispu": ispu_calc['skor_ispu_final'],
+                "kategori": ispu_calc['kategori_ispu'],
+                "parameter_kritis": ispu_calc['polutan_kritis']
+            }
+
+        # ==============================================================
+        # KANVAS GRAFIK: HITUNG ISPU HISTORIS SECARA DINAMIS
+        # ==============================================================
+        hasil_grafik = []
+        waktu_sekarang = datetime.now(TZ_WIB)
+
+        if filter_tipe == '24jam':
+            batas_waktu = waktu_sekarang - timedelta(hours=24)
+            
+            data_historis = DataHistoris.query.filter(
+                DataHistoris.id_wilayah == wilayah.id_wilayah,
+                DataHistoris.waktu_aktual >= batas_waktu,
+                DataHistoris.waktu_aktual <= waktu_sekarang
+            ).order_by(DataHistoris.waktu_aktual.asc()).all()
+            
+            for row in data_historis:
+                dict_polutan_hist = {
+                    'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
+                    'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
+                }
+                ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
                 
-    else:
-        days_filter = int(filter_tipe)
-        batas_waktu = waktu_sekarang.date() - timedelta(days=days_filter)
-        batas_waktu_dt = datetime.combine(batas_waktu, datetime.min.time())
-        
-        data_historis = DataHistoris.query.filter(
-            DataHistoris.id_wilayah == wilayah.id_wilayah,
-            DataHistoris.waktu_aktual >= batas_waktu_dt,
-            DataHistoris.waktu_aktual < datetime.combine(waktu_sekarang.date(), datetime.min.time())
-        ).order_by(DataHistoris.waktu_aktual.asc()).all()
-        
-        harian_dict = {}
-        for row in data_historis:
-            tgl_str = row.waktu_aktual.strftime("%d %b")
-            if tgl_str not in harian_dict:
-                harian_dict[tgl_str] = []
+                hasil_grafik.append({
+                    "tanggal": row.waktu_aktual.strftime("%H:00"), 
+                    "nilai_ispu": ispu_hist['skor_ispu_final']  # SUDAH DISESUAIKAN
+                })
+                    
+        else:
+            # PENGAMANAN 2: Konversi ke integer dengan aman
+            days_filter = int(filter_tipe) if filter_tipe.isdigit() else 7
             
-            # KOREKSI: Hitung skor ISPU harian secara langsung sebelum dirata-rata
-            dict_polutan_hist = {
-                'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
-                'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
-            }
-            ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
-            harian_dict[tgl_str].append(ispu_hist['nilai_ispu'])
+            batas_waktu = waktu_sekarang.date() - timedelta(days=days_filter)
+            batas_waktu_dt = datetime.combine(batas_waktu, datetime.min.time())
             
-        for tgl_str, list_ispu in harian_dict.items():
-            avg_ispu = sum(list_ispu) / len(list_ispu)
-            hasil_grafik.append({
-                "tanggal": tgl_str, 
-                "nilai_ispu": round(avg_ispu)
-            })
+            data_historis = DataHistoris.query.filter(
+                DataHistoris.id_wilayah == wilayah.id_wilayah,
+                DataHistoris.waktu_aktual >= batas_waktu_dt,
+                DataHistoris.waktu_aktual < datetime.combine(waktu_sekarang.date(), datetime.min.time())
+            ).order_by(DataHistoris.waktu_aktual.asc()).all()
+            
+            harian_dict = {}
+            for row in data_historis:
+                tgl_str = row.waktu_aktual.strftime("%d %b")
+                if tgl_str not in harian_dict:
+                    harian_dict[tgl_str] = []
+                
+                dict_polutan_hist = {
+                    'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
+                    'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
+                }
+                ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
+                harian_dict[tgl_str].append(ispu_hist['skor_ispu_final']) # SUDAH DISESUAIKAN
+                
+            for tgl_str, list_ispu in harian_dict.items():
+                if len(list_ispu) > 0:
+                    avg_ispu = sum(list_ispu) / len(list_ispu)
+                    hasil_grafik.append({
+                        "tanggal": tgl_str, 
+                        "nilai_ispu": round(avg_ispu)
+                    })
 
-    return jsonify({
-        "kota": nama_kota,
-        "prediksi_besok": data_prediksi,
-        "grafik": hasil_grafik
-    }), 200
+        return jsonify({
+            "kota": wilayah.nama_wilayah, 
+            "prediksi_besok": data_prediksi,
+            "grafik": hasil_grafik
+        }), 200
+
+    except Exception as e:
+        print(f"DEBUG: Error fatal saat memproses /api/ispu/{nama_kota}: {str(e)}")
+        return jsonify({"error": "Terjadi kesalahan internal pada server backend."}), 500
 
 if __name__ == '__main__':
     with app.app_context():

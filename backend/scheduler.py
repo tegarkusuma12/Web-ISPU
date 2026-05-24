@@ -173,7 +173,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                         pred_eksisting.pred_no2 = val_no2
                         pred_eksisting.pred_ozon = val_ozon
                         pred_eksisting.status = "PENDING"
-                        pred_eksisting.waktu_dibuat = datetime.utcnow() # Perbarui waktu stempel
+                        pred_eksisting.waktu_dibuat = datetime.now(pytz.UTC) # Perbarui waktu stempel
                     else:
                         # INSERT: Jika belum ada, buat baru
                         prediksi_baru = Predictions(
