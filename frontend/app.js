@@ -202,6 +202,19 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
 }
 
 // ==========================================
+// PEMBERSIH NAMA EKSTREM (Sapu Jagat)
+// ==========================================
+function sanitizeName(name) {
+    if (!name) return "";
+    return String(name).toUpperCase()
+        .replace(/KABUPATEN/g, '')
+        .replace(/KOTA/g, '')
+        .replace(/KAB\./g, '')
+        .replace(/[^A-Z]/g, '') // Menghapus spasi dan simbol non-huruf
+        .trim();
+}
+
+// ==========================================
 // FITUR PETA CHOROPLETH (DINAMIS BERDASARKAN JAM)
 // ==========================================
 async function renderPetaWarna() {

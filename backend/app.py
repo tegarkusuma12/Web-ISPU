@@ -106,18 +106,18 @@ def cek_status():
 @app.route('/api/ispu/rolling_24h', methods=['GET'])
 def get_ispu_rolling_24h():
     """
-    ENDPOINT BARU: Menarik prediksi 24 jam ke depan untuk seluruh 38 wilayah
-    dimulai dari jam aktif saat ini (Continuous Rolling Horizon).
+    ENDPOINT BARU: Menarik prediksi 24 jam ke depan dengan penanganan Timezone yang aman!
     """
     try:
-        # 1. Tentukan jangkauan waktu (Sekarang s/d 24 Jam ke depan)
+        # 1. Gunakan waktu UTC 'polos' (naive) untuk filter database agar tidak bentrok
         sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
-        akhir_wib = sekarang_wib + timedelta(hours=24)
+        sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
+        akhir_utc = sekarang_utc + timedelta(hours=24)
         
-        # 2. Tarik semua data prediksi dalam rentang waktu tersebut
+        # 2. Tarik data dari DB menggunakan UTC
         data_prediksi = db.session.query(Predictions, WilayahDetails)\
                           .join(WilayahDetails, Predictions.id_wilayah == WilayahDetails.id_wilayah)\
-                          .filter(Predictions.target_waktu >= sekarang_wib, Predictions.target_waktu <= akhir_wib)\
+                          .filter(Predictions.target_waktu >= sekarang_utc, Predictions.target_waktu <= akhir_utc)\
                           .order_by(WilayahDetails.nama_wilayah, Predictions.target_waktu.asc()).all()
         
         # 3. Kelompokkan data per kota menggunakan dictionary
@@ -125,11 +125,15 @@ def get_ispu_rolling_24h():
         grouped_data = defaultdict(list)
         
         for prediksi, wilayah in data_prediksi:
-            # Hitung indeks jarak waktu (+0 jam, +1 jam, dst.)
-            selisih_jam = int((prediksi.target_waktu - sekarang_wib).total_seconds() / 3600)
+            # PENGAMANAN TIMEZONE: Karena data DB adalah UTC polos, pasangkan label UTC, lalu konversi ke WIB
+            waktu_target_utc = pytz.UTC.localize(prediksi.target_waktu)
+            waktu_target_wib = waktu_target_utc.astimezone(TZ_WIB)
+            
+            # Hitung selisih jam dengan aman (keduanya sekarang sama-sama WIB)
+            selisih_jam = int((waktu_target_wib - sekarang_wib).total_seconds() / 3600)
             
             # Tentukan label hari secara dinamis
-            hari_str = "Hari Ini" if prediksi.target_waktu.date() == sekarang_wib.date() else "Besok"
+            hari_str = "Hari Ini" if waktu_target_wib.date() == sekarang_wib.date() else "Besok"
             
             dict_polutan = {
                 'PM25': prediksi.pred_pm25, 'PM10': prediksi.pred_pm10, 
@@ -138,10 +142,9 @@ def get_ispu_rolling_24h():
             }
             ispu_calc = kalkulasi_ispu_final(dict_polutan)
             
-            # Masukkan data jam ini ke dalam timeline kota terkait
             grouped_data[wilayah.nama_wilayah].append({
                 "indeks_waktu": selisih_jam,
-                "jam": prediksi.target_waktu.strftime("%H:00"),
+                "jam": waktu_target_wib.strftime("%H:00"),
                 "hari": hari_str,
                 "nilai_ispu": ispu_calc['skor_ispu_final'],
                 "kategori": ispu_calc['kategori_ispu'],
@@ -154,7 +157,6 @@ def get_ispu_rolling_24h():
                 "so2": prediksi.pred_so2
             })
             
-        # 4. Ubah format menjadi array agar mudah diproses oleh Frontend
         hasil_akhir = []
         for kota, timeline in grouped_data.items():
             hasil_akhir.append({
@@ -171,7 +173,6 @@ def get_ispu_rolling_24h():
     except Exception as e:
         print(f"DEBUG: Error fatal pada rolling_24h: {str(e)}")
         return jsonify({"error": "Gagal memproses data timeline per jam."}), 500
-
 
 @app.route('/api/ispu/<nama_kota>', methods=['GET'], strict_slashes=False)
 def get_ispu_kota(nama_kota):
