@@ -101,26 +101,24 @@ def evaluasi_akurasi_per_jam(waktu_jam_ini):
                 print(f"   [!] Gagal mengevaluasi {wilayah.nama_wilayah}: {e}")
 
 # ==============================================================================
-# LANGKAH 3: PREDIKSI MASA DEPAN (Murni Microgram, Tanpa Hitung ISPU)
+# LANGKAH 3: PREDIKSI POLUTAN
 # ==============================================================================
 def eksekusi_prediksi_rolling(waktu_jam_ini):
     print(f" 🔹 [3/4] Menjalankan prediksi Rolling Horizon 24 Jam...")
     with app.app_context():
-        # Cari model yang aktif
         model_aktif = ModelRegistry.query.filter_by(is_active=True).first()
         
-        # Jika di database belum ada model yang terdaftar, ISI OTOMATIS!
         if not model_aktif:
-            print(f" 💡 [Database Info] Model aktif belum terdaftar. Mendaftarkan model XGBoost Optuna secara otomatis...")
+            print(f" 💡 [Database Info] Mendaftarkan model otomatis...")
             model_aktif = ModelRegistry(
-                algoritma='XGBoost Multi-Output Optuna',
+                algoritma='XGBoost Multi-Output Optuna', 
                 versi_model='v1.0',
-                hyperparameter={},  # masukkan hyperparameter
+                hyperparameter={}, #  tuliskan hyperparameter
                 is_active=True
             )
             db.session.add(model_aktif)
             db.session.commit()
-            print(f"Model berhasil didaftarkan otomatis dengan ID: {model_aktif.id_model}")
+            print(f" ✅ Model terdaftar dengan ID: {model_aktif.id_model}")
         
         daftar_wilayah = WilayahDetails.query.all()
         prediksi_baru_massal = []
@@ -140,8 +138,6 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                           'CO': r.co, 'NO2': r.no2, 'O3': r.ozon} for r in riwayat]
             
             df_history_jam = pd.DataFrame(data_list)
-            
-            # Imputasi: Menambal data API yang mungkin bolong dengan nilai sebelumnya
             df_history_jam = df_history_jam.ffill().fillna(0)
             
             daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
@@ -149,10 +145,30 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
 
             try:
                 dict_prediksi_array = {}
+                import numpy as np 
+                
+                # --- CETAK NAMA ASLI MODEL KE TERMINAL ---
+                if wilayah.id_wilayah == 1: # Cukup print 1 kali saja untuk kota pertama
+                    print(f"   [DEBUG DETEKTIF] Kunci asli model di .pkl: {list(dict_model_spesialis.keys())}")
+                
                 for nama_target, model_ai in dict_model_spesialis.items():
-                    polutan = nama_target.split('_')[1].split(' ')[0].replace('.', '').upper()
-                    # XGBoost menebak 24 angka
-                    dict_prediksi_array[polutan] = model_ai.predict(df_input)[0]
+                    # Filter super agresif: buang spasi, titik, dan underscore
+                    nama_bersih = nama_target.upper().replace('.', '').replace('_', '').replace(' ', '')
+                    if 'PM25' in nama_bersih: polutan = 'PM25'
+                    elif 'PM10' in nama_bersih: polutan = 'PM10'
+                    elif 'SO2' in nama_bersih: polutan = 'SO2'
+                    elif 'CO' in nama_bersih: polutan = 'CO'
+                    elif 'NO2' in nama_bersih: polutan = 'NO2'
+                    elif 'O3' in nama_bersih or 'OZON' in nama_bersih: polutan = 'O3'
+                    else: polutan = nama_bersih 
+                    
+                    pred_raw = model_ai.predict(df_input)
+                    pred_list = np.array(pred_raw).flatten().tolist()
+                    
+                    if len(pred_list) < 24:
+                        pred_list.extend([pred_list[-1]] * (24 - len(pred_list)))
+                        
+                    dict_prediksi_array[polutan] = pred_list
 
                 waktu_mulai = waktu_jam_ini + timedelta(hours=1)
                 waktu_akhir = waktu_jam_ini + timedelta(hours=24)
@@ -164,18 +180,18 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                 ).all()
                 kamus_eksisting = {pred.target_waktu.strftime('%Y-%m-%d %H:%M:%S'): pred for pred in data_eksisting}
 
-                # Menyebar tebakan Microgram ke 24 jam
                 for jam_ke in range(1, 25):
                     target_waktu_jam = waktu_jam_ini + timedelta(hours=jam_ke)
                     key_waktu = target_waktu_jam.strftime('%Y-%m-%d %H:%M:%S')
                     idx = jam_ke - 1
                     
+                    # max(0, nilai) akan mengubah semua angka minus menjadi 0 mutlak
                     val_pm25 = float(max(0, dict_prediksi_array.get('PM25', [0]*24)[idx]))
                     val_pm10 = float(max(0, dict_prediksi_array.get('PM10', [0]*24)[idx]))
                     val_so2  = float(max(0, dict_prediksi_array.get('SO2', [0]*24)[idx]))
                     val_co   = float(max(0, dict_prediksi_array.get('CO', [0]*24)[idx]))
                     val_no2  = float(max(0, dict_prediksi_array.get('NO2', [0]*24)[idx]))
-                    val_ozon_array = dict_prediksi_array.get('O3', dict_prediksi_array.get('OZON', [0]*24))
+                    val_ozon_array = dict_prediksi_array.get('OZON', dict_prediksi_array.get('O3', [0]*24))
                     val_ozon = float(max(0, val_ozon_array[idx]))
 
                     pred_eksisting = kamus_eksisting.get(key_waktu)
@@ -198,6 +214,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                         )
                         prediksi_baru_massal.append(prediksi_baru)
             except Exception as e:
+                import traceback
                 print(f"   [!] Gagal memprediksi rolling {wilayah.nama_wilayah}: {e}")
 
         try:
@@ -220,11 +237,12 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
         
         for wilayah in daftar_wilayah:
             batas_waktu_24j = waktu_jam_ini - timedelta(hours=23) 
+            # Mengurutkan berdasarkan waktu untuk memastikan data_terakhir adalah jam ini
             riwayat_24j = DataHistoris.query.filter(
                 DataHistoris.id_wilayah == wilayah.id_wilayah,
                 DataHistoris.waktu_aktual >= batas_waktu_24j,
                 DataHistoris.waktu_aktual <= waktu_jam_ini
-            ).all()
+            ).order_by(DataHistoris.waktu_aktual.asc()).all()
             
             if not riwayat_24j:
                 continue
@@ -241,15 +259,17 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
             
             hasil_ispu = kalkulasi_ispu_final(dict_rata_riil)
             
+            # Ambil id_data dari data jam ini untuk disambungkan ke tabel ispu_historis
+            data_terakhir = riwayat_24j[-1]
+            
+            # Format minimalis: tambahkan waktu_kalkulasi agar database tidak menolak
             catatan_ispu = IspuHistoris(
                 id_wilayah=wilayah.id_wilayah,
-                waktu_kalkulasi=waktu_jam_ini,
-                skor_pm25=hasil_ispu['skor_pm25'], skor_pm10=hasil_ispu['skor_pm10'],
-                skor_so2=hasil_ispu['skor_so2'], skor_co=hasil_ispu['skor_co'],
-                skor_no2=hasil_ispu['skor_no2'], skor_ozon=hasil_ispu['skor_ozon'],
-                ispu_final=hasil_ispu['skor_ispu_final'],
-                polutan_kritis=hasil_ispu['polutan_kritis'],
-                kategori_ispu=hasil_ispu['kategori_ispu']
+                id_data=data_terakhir.id_data,
+                waktu_kalkulasi=waktu_jam_ini, 
+                nilai_ispu=hasil_ispu['skor_ispu_final'],
+                kategori_ispu=hasil_ispu['kategori_ispu'],
+                parameter_kritis=hasil_ispu['polutan_kritis']
             )
             ispu_aktual_massal.append(catatan_ispu)
             
@@ -257,7 +277,7 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
             if ispu_aktual_massal:
                 db.session.bulk_save_objects(ispu_aktual_massal)
                 db.session.commit()
-                print(f"   [+] Berhasil menyimpan {len(ispu_aktual_massal)} data ISPU Aktual.")
+                print(f"   [+] Berhasil menyimpan {len(ispu_aktual_massal)} data ISPU Aktual ke Supabase.")
         except Exception as e:
             db.session.rollback()
             print(f"   [!] Gagal menyimpan data ISPU Aktual: {e}")

@@ -1,5 +1,9 @@
 # backend/ispu_logic.py
 import pandas as pd
+import warnings
+
+# Mengabaikan warning performa (fragmented dataframe) jika masih muncul
+warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
 # Tabel Referensi Batas ISPU 
 # Format: [Batas_Bawah, Batas_Atas]
@@ -59,10 +63,10 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
     """
     Input : {'PM25': 45.2, 'CO': 120.0, ...}
     Output: Dictionary lengkap berisi seluruh skor individu & final 
-            untuk dimasukkan ke tabel interpolasi_ispu di Supabase.
+            untuk dimasukkan ke tabel ispu_historis di Supabase.
     """
     # Siapkan template skor individu
-    skor_individu: dict = {
+    skor_individu: dict[str, int | None] = {
         'skor_pm25': None,
         'skor_pm10': None,
         'skor_so2': None,
@@ -118,21 +122,20 @@ def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
     df_temp['waktu_aktual'] = pd.to_datetime(df_temp['waktu_aktual'])
     df_temp = df_temp.sort_values(by='waktu_aktual').reset_index(drop=True)
     
-    # 2. Fitur Temporal (Sekarang bisa menambahkan Jam)
+    # 2. Fitur Temporal 
     df_temp['Bulan'] = df_temp['waktu_aktual'].dt.month
     df_temp['Jam'] = df_temp['waktu_aktual'].dt.hour
     df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int)
     
     # 3. Fitur History & Rolling 
-    # Karena data per jam, mundur 3 hari = 72 Jam.
-    n_lags = 3  # Opsional: ubah ke 24 jika kamu melatih H-1 hingga H-24
+    n_lags = 3  
     window_3_hari = 72 
     
     for p in daftar_polutan:
         for i in range(1, n_lags + 1):
             df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
             
-        # Rolling rata-rata dan max untuk 72 jam terakhir (3 Hari)
+        # Rolling rata-rata dan max untuk 72 jam terakhir
         df_temp[f'{p}_RollMean_3'] = df_temp[p].shift(1).rolling(window=window_3_hari).mean()
         df_temp[f'{p}_RollMax_3'] = df_temp[p].shift(1).rolling(window=window_3_hari).max()
         
@@ -144,12 +147,15 @@ def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
     # 5. Ambil BARIS TERAKHIR SAJA (Jam Ini / Prediksi untuk Jam Berikutnya)
     X_prediksi_besok = df_temp.iloc[[-1]].copy()
     
-    # 6. PENYELAMAT DIMENSI: Menambahkan kolom kota lain yang kosong
-    for col in kolom_training_asli:
-        if col not in X_prediksi_besok.columns:
-            X_prediksi_besok[col] = 0
+    # 6. PENYELAMAT DIMENSI (Diperbarui untuk mengatasi Warning Pandas)
+    # Cari kolom apa saja yang diminta oleh model tapi belum ada di data saat ini
+    missing_cols = [col for col in kolom_training_asli if col not in X_prediksi_besok.columns]
+    
+    if missing_cols:
+        # Menambahkan semua kolom yang hilang sekaligus dengan nilai 0 (Bulk Assignment)
+        X_prediksi_besok[missing_cols] = 0
             
-    # Hapus kolom yang tidak berguna dan urutkan sesuai saat training
+    # Hapus kolom yang tidak berguna dan urutkan persis sesuai saat training
     X_prediksi_besok = X_prediksi_besok[kolom_training_asli]
     
     return X_prediksi_besok
