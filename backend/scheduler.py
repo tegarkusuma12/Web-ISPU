@@ -107,8 +107,8 @@ def evaluasi_akurasi_per_jam(waktu_jam_ini):
 
 
 def eksekusi_prediksi_rolling(waktu_jam_ini):
-    """LANGKAH 3: Memprediksi 24 jam ke depan menggunakan konsep UPSERT (Update/Insert)"""
-    print(f" 🔹 [3/3] Menjalankan prediksi Rolling Horizon 24 Jam...")
+    """LANGKAH 3: Memprediksi 24 jam ke depan menggunakan konsep UPSERT Bulk Processing"""
+    print(f" 🔹 [3/3] Menjalankan prediksi Rolling Horizon 24 Jam secara Massal (Bulk)...")
     
     with app.app_context():
         model_aktif = ModelRegistry.query.filter_by(is_active=True).first()
@@ -118,6 +118,9 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
             db.session.commit()
         
         daftar_wilayah = WilayahDetails.query.all()
+        
+        # KERANJANG BELANJA: Menyimpan data baru sebelum dikirim serentak
+        prediksi_baru_massal = []
         
         for wilayah in daftar_wilayah:
             batas_waktu_input = waktu_jam_ini - timedelta(days=4)
@@ -129,7 +132,6 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
             if len(riwayat) < 72:
                 continue
 
-            # Siapkan Data Input AI
             data_list = [{'waktu_aktual': r.waktu_aktual, 'nama_wilayah': wilayah.nama_wilayah,
                           'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
                           'CO': r.co, 'NO2': r.no2, 'O3': r.ozon} for r in riwayat]
@@ -142,19 +144,32 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                 dict_prediksi_scalar = {}
                 for nama_target, model_ai in dict_model_spesialis.items():
                     polutan = nama_target.split('_')[1].split(' ')[0].replace('.', '').upper()
-                    # CATATAN: Menggunakan [0] karena model saat ini baru memuntahkan 1 scalar
-                    # Nanti jika sudah dilatih ulang jadi Multi-Output, hapus [0] ini.
                     pred_scalar = model_ai.predict(df_input)[0] 
                     dict_prediksi_scalar[polutan] = pred_scalar
 
-                # UPSERT: Menyebarkan tebakan ke 24 jam ke depan
+                # ==============================================================
+                # AWAL OPTIMASI: BULK SELECT (Hanya 1 Tarikan Data untuk 24 Jam)
+                # ==============================================================
+                waktu_mulai = waktu_jam_ini + timedelta(hours=1)
+                waktu_akhir = waktu_jam_ini + timedelta(hours=24)
+                
+                # Menarik SEMUA 24 baris data eksisting untuk kota ini sekaligus!
+                data_eksisting = Predictions.query.filter(
+                    Predictions.id_wilayah == wilayah.id_wilayah,
+                    Predictions.target_waktu >= waktu_mulai,
+                    Predictions.target_waktu <= waktu_akhir
+                ).all()
+                
+                # Buat "Kamus Offline" untuk pencarian kilat di dalam RAM lokal
+                kamus_eksisting = {pred.target_waktu.strftime('%Y-%m-%d %H:%M:%S'): pred for pred in data_eksisting}
+
+                # Mulai menyebar tebakan ke 24 jam
                 for jam_ke in range(1, 25):
                     target_waktu_jam = waktu_jam_ini + timedelta(hours=jam_ke)
+                    key_waktu = target_waktu_jam.strftime('%Y-%m-%d %H:%M:%S')
                     
-                    # Cek apakah jam ini sudah pernah diprediksi sebelumnya
-                    pred_eksisting = Predictions.query.filter_by(
-                        id_wilayah=wilayah.id_wilayah, target_waktu=target_waktu_jam
-                    ).first()
+                    # Cari di dalam Kamus Lokal (0.0001 detik, tanpa internet!)
+                    pred_eksisting = kamus_eksisting.get(key_waktu)
 
                     val_pm25 = float(max(0, dict_prediksi_scalar.get('PM25', 0)))
                     val_pm10 = float(max(0, dict_prediksi_scalar.get('PM10', 0)))
@@ -165,7 +180,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     val_ozon = float(max(0, val_ozon))
 
                     if pred_eksisting:
-                        # UPDATE: Timpa angka lama dengan tebakan yang lebih baru/fresh
+                        # UPDATE LOKAL: SQLAlchemy hanya mencatat perubahannya di memori sementara
                         pred_eksisting.pred_pm25 = val_pm25
                         pred_eksisting.pred_pm10 = val_pm10
                         pred_eksisting.pred_so2 = val_so2
@@ -173,9 +188,9 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                         pred_eksisting.pred_no2 = val_no2
                         pred_eksisting.pred_ozon = val_ozon
                         pred_eksisting.status = "PENDING"
-                        pred_eksisting.waktu_dibuat = datetime.now(pytz.UTC) # Perbarui waktu stempel
+                        pred_eksisting.waktu_dibuat = datetime.now(pytz.UTC)
                     else:
-                        # INSERT: Jika belum ada, buat baru
+                        # INSERT LOKAL: Masukkan ke Keranjang Belanja, jangan tembak ke DB dulu
                         prediksi_baru = Predictions(
                             id_model=model_aktif.id_model,
                             id_wilayah=wilayah.id_wilayah,
@@ -183,13 +198,28 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                             pred_pm25=val_pm25, pred_pm10=val_pm10, pred_so2=val_so2,
                             pred_co=val_co, pred_no2=val_no2, pred_ozon=val_ozon, status="PENDING"
                         )
-                        db.session.add(prediksi_baru)
-                
-                db.session.commit()
+                        prediksi_baru_massal.append(prediksi_baru)
+                        
             except Exception as e:
-                db.session.rollback()
+                # Perbaikan: Rollback dihilangkan dari sini agar tidak merusak data kota lain yang sudah siap di memori
                 print(f"   [!] Gagal memprediksi rolling {wilayah.nama_wilayah}: {e}")
 
+        # ==============================================================
+        # AKHIR OPTIMASI: EKSEKUSI MASSAL KE DATABASE SUPABASE
+        # ==============================================================
+        try:
+            print(f"   [+] Mengirim {len(prediksi_baru_massal)} data baru dan memperbarui data lama serentak...")
+            
+            # Tembakkan seluruh isi keranjang INSERT sekaligus
+            if prediksi_baru_massal:
+                db.session.bulk_save_objects(prediksi_baru_massal)
+            
+            # Tembakkan seluruh pencatatan UPDATE dan INSERT ke Supabase (Hanya 1x Jalan!)
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"   [!] Gagal melakukan komit massal ke Supabase: {e}")
 
 def siklus_utama_per_jam():
     """Fungsi Master yang merantai seluruh proses"""
@@ -203,7 +233,6 @@ def siklus_utama_per_jam():
     eksekusi_prediksi_rolling(waktu_jam_ini)
     
     print(f"[{datetime.now(TZ_WIB).strftime('%Y-%m-%d %H:%M:%S')}] === SIKLUS SELESAI ===\n")
-
 
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
