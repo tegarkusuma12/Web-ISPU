@@ -106,11 +106,21 @@ def evaluasi_akurasi_per_jam(waktu_jam_ini):
 def eksekusi_prediksi_rolling(waktu_jam_ini):
     print(f" 🔹 [3/4] Menjalankan prediksi Rolling Horizon 24 Jam...")
     with app.app_context():
+        # Cari model yang aktif
         model_aktif = ModelRegistry.query.filter_by(is_active=True).first()
+        
+        # Jika di database belum ada model yang terdaftar, ISI OTOMATIS!
         if not model_aktif:
-            model_aktif = ModelRegistry(algoritma='XGBoost Multi-Otak', versi_model='v1.0', is_active=True)
+            print(f" 💡 [Database Info] Model aktif belum terdaftar. Mendaftarkan model XGBoost Optuna secara otomatis...")
+            model_aktif = ModelRegistry(
+                algoritma='XGBoost Multi-Output Optuna',
+                versi_model='v1.0',
+                hyperparameter={},  # masukkan hyperparameter
+                is_active=True
+            )
             db.session.add(model_aktif)
             db.session.commit()
+            print(f"Model berhasil didaftarkan otomatis dengan ID: {model_aktif.id_model}")
         
         daftar_wilayah = WilayahDetails.query.all()
         prediksi_baru_massal = []
