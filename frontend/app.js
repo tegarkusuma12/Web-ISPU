@@ -141,26 +141,37 @@ function updateLeaderboard() {
     const sortedTerburuk = [...currentData].sort((a, b) => b.nilai_ispu - a.nilai_ispu).slice(0, 5);
     const sortedTerbersih = [...currentData].sort((a, b) => a.nilai_ispu - b.nilai_ispu).slice(0, 5);
 
-    const renderList = (arrayData, containerId) => {
-        const container = document.getElementById(containerId);
-        if(!container) return;
-        container.innerHTML = '';
-        arrayData.forEach(item => {
-            const color = getStatusColor(item.kategori);
-            container.innerHTML += `
-                <li class="list-group-item d-flex justify-content-between align-items-center" 
-                    style="cursor: pointer; transition: 0.3s;" 
-                    onmouseover="this.style.backgroundColor='#f1f3f5'" 
-                    onmouseout="this.style.backgroundColor='white'"
-                    onclick="pilihKota('${item.kota}', true)">
-                    <span class="fw-semibold">${item.kota}</span>
-                    <span class="badge rounded-pill text-white badge-ispu" style="background-color: ${color}">
+const renderList = (arrayData, containerId) => {
+    const container = document.getElementById(containerId);
+    if(!container) return;
+    container.innerHTML = '';
+    arrayData.forEach(item => {
+        const color = getStatusColor(item.kategori);
+        // Hitung persentase bar (anggap batas atas aman ISPU adalah 150)
+        const percent = Math.min((item.nilai_ispu / 150) * 100, 100);
+        
+        container.innerHTML += `
+            <li class="list-group-item d-flex flex-column align-items-stretch" 
+                style="cursor: pointer; transition: 0.3s; border-radius: 8px; margin-bottom: 4px;" 
+                onmouseover="this.style.backgroundColor='#f1f3f5'" 
+                onmouseout="this.style.backgroundColor='transparent'"
+                onclick="pilihKota('${item.kota}', true)">
+                
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-semibold" style="font-size: 0.9rem;">${item.kota}</span>
+                    <span class="badge rounded-pill text-white" style="background-color: ${color}; font-size: 0.75rem; padding: 0.25rem 0.6rem;">
                         ${item.nilai_ispu}
                     </span>
-                </li>
-            `;
-        });
-    };
+                </div>
+                
+                <!-- Progress Bar Kualitas Udara Mini -->
+                <div class="progress" style="height: 5px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                    <div class="progress-bar" style="width: ${percent}%; background-color: ${color}; border-radius: 50px; transition: width 0.6s ease;"></div>
+                </div>
+            </li>
+        `;
+    });
+};
 
     renderList(sortedTerburuk, 'list-terburuk');
     renderList(sortedTerbersih, 'list-terbersih');
