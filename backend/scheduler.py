@@ -20,7 +20,7 @@ TZ_WIB = pytz.timezone('Asia/Jakarta')
 # ==============================================================================
 # MUAT MODEL ML SAAT STARTUP
 # ==============================================================================
-MODEL_PATH = 'data_training/xgb_optuna_multioutpu_tegar.pkl'
+MODEL_PATH = 'data_training/xgb_optuna_multioutput_tegar.pkl'
 if os.path.exists(MODEL_PATH):
     paket_model = joblib.load(MODEL_PATH)
     dict_model_spesialis = paket_model['dict_model_spesialis']
