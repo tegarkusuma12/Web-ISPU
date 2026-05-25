@@ -1,3 +1,4 @@
+# backend/app.py
 import os
 import pytz
 from flask import Flask, jsonify, request
@@ -17,13 +18,11 @@ app = Flask(__name__)
 CORS(app) 
 
 app.config['CACHE_TYPE'] = 'SimpleCache'
-app.config['CACHE_DEFAULT_TIMEOUT'] = 900 # Waktu simpan default: 15 menit (900 detik)
+app.config['CACHE_DEFAULT_TIMEOUT'] = 900
 cache = Cache(app)
 
-# Konfigurasi Zona Waktu
 TZ_WIB = pytz.timezone('Asia/Jakarta')
 
-# Konfigurasi Database
 db_url = os.getenv('DATABASE_URL_POOLER')
 if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -100,6 +99,17 @@ class ValidationsLogs(db.Model):
     err_ozon = db.Column(db.Float)
     validated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class IspuHistoris(db.Model):
+    __tablename__ = 'ispu_historis'
+    id_ispu = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_wilayah = db.Column(db.Integer, db.ForeignKey('wilayah_details.id_wilayah'))
+    id_data = db.Column(db.Integer, db.ForeignKey('data_historis.id_data'))
+    
+    nilai_ispu = db.Column(db.Integer, nullable=False)
+    kategori_ispu = db.Column(db.String(50), nullable=False)
+    parameter_kritis = db.Column(db.String(10), nullable=False)
+    waktu_kalkulasi = db.Column(db.DateTime, nullable=False)
+
 # ==========================================
 # ENDPOINT API (Untuk Frontend)
 # ==========================================
@@ -108,37 +118,31 @@ class ValidationsLogs(db.Model):
 def cek_status():
     return jsonify({"pesan": "Server Backend ISPU Jatim Aktif!"}), 200
 
+# ------------------------------------------------------------------------------
+# SKENARIO B: ON-THE-FLY PREDIKSI 24 JAM KE DEPAN
+# ------------------------------------------------------------------------------
 @app.route('/api/ispu/rolling_24h', methods=['GET'])
 @cache.cached(timeout=900)
 def get_ispu_rolling_24h():
-    """
-    ENDPOINT BARU: Menarik prediksi 24 jam ke depan dengan penanganan Timezone yang aman!
-    """
+    """Menarik prediksi 24 jam ke depan (Logikamu dipertahankan penuh)"""
     try:
-        # 1. Gunakan waktu UTC 'polos' (naive) untuk filter database agar tidak bentrok
         sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
         sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
         akhir_utc = sekarang_utc + timedelta(hours=24)
         
-        # 2. Tarik data dari DB menggunakan UTC
         data_prediksi = db.session.query(Predictions, WilayahDetails)\
                           .join(WilayahDetails, Predictions.id_wilayah == WilayahDetails.id_wilayah)\
                           .filter(Predictions.target_waktu >= sekarang_utc, Predictions.target_waktu <= akhir_utc)\
                           .order_by(WilayahDetails.nama_wilayah, Predictions.target_waktu.asc()).all()
         
-        # 3. Kelompokkan data per kota menggunakan dictionary
         from collections import defaultdict
         grouped_data = defaultdict(list)
         
         for prediksi, wilayah in data_prediksi:
-            # PENGAMANAN TIMEZONE: Karena data DB adalah UTC polos, pasangkan label UTC, lalu konversi ke WIB
             waktu_target_utc = pytz.UTC.localize(prediksi.target_waktu)
             waktu_target_wib = waktu_target_utc.astimezone(TZ_WIB)
             
-            # Hitung selisih jam dengan aman (keduanya sekarang sama-sama WIB)
             selisih_jam = int((waktu_target_wib - sekarang_wib).total_seconds() / 3600)
-            
-            # Tentukan label hari secara dinamis
             hari_str = "Hari Ini" if waktu_target_wib.date() == sekarang_wib.date() else "Besok"
             
             dict_polutan = {
@@ -146,6 +150,7 @@ def get_ispu_rolling_24h():
                 'CO': prediksi.pred_co, 'NO2': prediksi.pred_no2, 
                 'O3': prediksi.pred_ozon, 'SO2': prediksi.pred_so2
             }
+            # Menghitung ISPU mendadak (Skenario B)
             ispu_calc = kalkulasi_ispu_final(dict_polutan)
             
             grouped_data[wilayah.nama_wilayah].append({
@@ -155,20 +160,12 @@ def get_ispu_rolling_24h():
                 "nilai_ispu": ispu_calc['skor_ispu_final'],
                 "kategori": ispu_calc['kategori_ispu'],
                 "parameter_kritis": ispu_calc['polutan_kritis'],
-                "pm25": prediksi.pred_pm25, 
-                "pm10": prediksi.pred_pm10, 
-                "co": prediksi.pred_co, 
-                "no2": prediksi.pred_no2, 
-                "o3": prediksi.pred_ozon, 
-                "so2": prediksi.pred_so2
+                "pm25": prediksi.pred_pm25, "pm10": prediksi.pred_pm10, 
+                "co": prediksi.pred_co, "no2": prediksi.pred_no2, 
+                "o3": prediksi.pred_ozon, "so2": prediksi.pred_so2
             })
             
-        hasil_akhir = []
-        for kota, timeline in grouped_data.items():
-            hasil_akhir.append({
-                "kota": kota,
-                "timeline": timeline
-            })
+        hasil_akhir = [{"kota": kota, "timeline": timeline} for kota, timeline in grouped_data.items()]
             
         return jsonify({
             "waktu_buka_web": sekarang_wib.strftime("%Y-%m-%d %H:%M WIB"),
@@ -180,6 +177,9 @@ def get_ispu_rolling_24h():
         print(f"DEBUG: Error fatal pada rolling_24h: {str(e)}")
         return jsonify({"error": "Gagal memproses data timeline per jam."}), 500
 
+# ------------------------------------------------------------------------------
+# SKENARIO A: KARTU BIRU & GRAFIK (MENGGUNAKAN ISPU HISTORIS)
+# ------------------------------------------------------------------------------
 @app.route('/api/ispu/<nama_kota>', methods=['GET'], strict_slashes=False)
 @cache.cached(timeout=900, query_string=True)
 def get_ispu_kota(nama_kota):
@@ -192,98 +192,85 @@ def get_ispu_kota(nama_kota):
             return jsonify({"error": "Kota tidak terdaftar di database kami."}), 404
 
         # ==============================================================
-        # KARTU BIRU: SEKARANG KITA AMBIL JAM AKTIF SAAT INI (BUKAN BESOK TENGAH MALAM)
+        # KARTU BIRU: ISPU SAAT INI (Ambil dari Skenario A / Data Riil)
         # ==============================================================
-        sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
+        # PERBAIKAN: Bukan dari Predictions, tapi dari IspuHistoris terbaru
+        db_ispu_aktual = IspuHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah)\
+                                     .order_by(IspuHistoris.waktu_kalkulasi.desc()).first()
         
-        db_prediksi = Predictions.query.filter_by(
-            id_wilayah=wilayah.id_wilayah, 
-            target_waktu=sekarang_wib
-        ).first()
-        
-        data_prediksi = {}
-        if db_prediksi:
-            dict_polutan = {
-                'PM25': db_prediksi.pred_pm25, 'PM10': db_prediksi.pred_pm10, 
-                'CO': db_prediksi.pred_co, 'NO2': db_prediksi.pred_no2, 
-                'O3': db_prediksi.pred_ozon, 'SO2': db_prediksi.pred_so2
-            }
-            ispu_calc = kalkulasi_ispu_final(dict_polutan)
-            
-            data_prediksi = {
-                "nilai_ispu": ispu_calc['skor_ispu_final'],
-                "kategori": ispu_calc['kategori_ispu'],
-                "parameter_kritis": ispu_calc['polutan_kritis']
+        data_sekarang = {}
+        if db_ispu_aktual:
+            data_sekarang = {
+                "nilai_ispu": db_ispu_aktual.nilai_ispu,
+                "kategori": db_ispu_aktual.kategori_ispu,
+                "parameter_kritis": db_ispu_aktual.parameter_kritis
             }
 
         # ==============================================================
-        # KANVAS GRAFIK: HITUNG ISPU HISTORIS SECARA DINAMIS
+        # KANVAS GRAFIK: HISTORIS (Ambil Matang dari Database)
         # ==============================================================
         hasil_grafik = []
-        waktu_sekarang = datetime.now(TZ_WIB)
+        sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
+        sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
 
         if filter_tipe == '24jam':
-            batas_waktu = waktu_sekarang - timedelta(hours=24)
-            data_historis = DataHistoris.query.filter(
-                DataHistoris.id_wilayah == wilayah.id_wilayah,
-                DataHistoris.waktu_aktual >= batas_waktu,
-                DataHistoris.waktu_aktual <= waktu_sekarang
-            ).order_by(DataHistoris.waktu_aktual.asc()).all()
+            batas_waktu_utc = sekarang_utc - timedelta(hours=24)
+            # PERBAIKAN: Langsung query IspuHistoris, tidak perlu kalkulasi on-the-fly lagi!
+            data_historis = IspuHistoris.query.filter(
+                IspuHistoris.id_wilayah == wilayah.id_wilayah,
+                IspuHistoris.waktu_kalkulasi >= batas_waktu_utc,
+                IspuHistoris.waktu_kalkulasi <= sekarang_utc
+            ).order_by(IspuHistoris.waktu_kalkulasi.asc()).all()
             
             for row in data_historis:
-                dict_polutan_hist = {
-                    'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
-                    'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
-                }
-                ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
+                waktu_wib = pytz.UTC.localize(row.waktu_kalkulasi).astimezone(TZ_WIB)
                 hasil_grafik.append({
-                    "tanggal": row.waktu_aktual.strftime("%H:00"), 
-                    "nilai_ispu": ispu_hist['skor_ispu_final']
+                    "tanggal": waktu_wib.strftime("%H:00"), 
+                    "nilai_ispu": row.nilai_ispu
                 })
                     
         else:
             days_filter = int(filter_tipe) if filter_tipe.isdigit() else 7
-            batas_waktu = waktu_sekarang.date() - timedelta(days=days_filter)
-            batas_waktu_dt = datetime.combine(batas_waktu, datetime.min.time())
+            batas_waktu_utc = sekarang_utc - timedelta(days=days_filter)
             
-            data_historis = DataHistoris.query.filter(
-                DataHistoris.id_wilayah == wilayah.id_wilayah,
-                DataHistoris.waktu_aktual >= batas_waktu_dt,
-                DataHistoris.waktu_aktual < datetime.combine(waktu_sekarang.date(), datetime.min.time())
-            ).order_by(DataHistoris.waktu_aktual.asc()).all()
+            data_historis = IspuHistoris.query.filter(
+                IspuHistoris.id_wilayah == wilayah.id_wilayah,
+                IspuHistoris.waktu_kalkulasi >= batas_waktu_utc,
+                IspuHistoris.waktu_kalkulasi <= sekarang_utc
+            ).order_by(IspuHistoris.waktu_kalkulasi.asc()).all()
             
+            # Pengelompokan harian
             harian_dict = {}
             for row in data_historis:
-                tgl_str = row.waktu_aktual.strftime("%d %b")
+                waktu_wib = pytz.UTC.localize(row.waktu_kalkulasi).astimezone(TZ_WIB)
+                tgl_str = waktu_wib.strftime("%d %b")
+                
                 if tgl_str not in harian_dict:
                     harian_dict[tgl_str] = []
-                
-                dict_polutan_hist = {
-                    'PM25': row.pm25, 'PM10': row.pm10, 'CO': row.co,
-                    'NO2': row.no2, 'O3': row.ozon, 'SO2': row.so2
-                }
-                ispu_hist = kalkulasi_ispu_final(dict_polutan_hist)
-                harian_dict[tgl_str].append(ispu_hist['skor_ispu_final'])
+                harian_dict[tgl_str].append(row.nilai_ispu)
                 
             for tgl_str, list_ispu in harian_dict.items():
                 if len(list_ispu) > 0:
                     avg_ispu = sum(list_ispu) / len(list_ispu)
                     hasil_grafik.append({
                         "tanggal": tgl_str, 
-                        "nilai_ispu": round(avg_ispu)
+                        "nilai_ispu": round(avg_ispu) # Cukup di-rata-rata angkanya saja
                     })
 
         return jsonify({
             "kota": wilayah.nama_wilayah, 
-            "prediksi_besok": data_prediksi,
+            # Ubah key json "prediksi_besok" menjadi "kondisi_sekarang" agar UI tidak bingung
+            "kondisi_sekarang": data_sekarang, 
             "grafik": hasil_grafik
         }), 200
 
     except Exception as e:
         print(f"DEBUG: Error fatal saat memproses /api/ispu/{nama_kota}: {str(e)}")
         return jsonify({"error": "Terjadi kesalahan internal pada server backend."}), 500
+
 if __name__ == '__main__':
     with app.app_context():
+        db.create_all()
         print("✅ Semua tabel proyek prediksi ISPU berhasil dicetak di Supabase!")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
