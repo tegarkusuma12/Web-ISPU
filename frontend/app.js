@@ -322,6 +322,11 @@ function updateChart(dataGrafik, kota) {
 
     if (myChart) myChart.destroy();
 
+    // MEMBUAT EFEK GRADIEN GLOW BERGRADASI KE TRANSPARAN
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(13, 110, 253, 0.35)');
+    gradient.addColorStop(1, 'rgba(13, 110, 253, 0.00)');
+
     myChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -330,7 +335,7 @@ function updateChart(dataGrafik, kota) {
                 label: `Nilai ISPU ${kota}`,
                 data: dataIspu,
                 borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                backgroundColor: gradient, // Gunakan gradien di sini
                 borderWidth: 3,
                 pointRadius: dataGrafik.length > 10 ? 2 : 5, 
                 fill: true,
@@ -339,8 +344,25 @@ function updateChart(dataGrafik, kota) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false // Sembunyikan legenda default agar header grafik lebih bersih
+                }
+            },
             scales: {
-                y: { beginAtZero: true, suggestedMax: 150 }
+                y: { 
+                    beginAtZero: true, 
+                    suggestedMax: 150,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)' // Gridline yang sangat halus
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false // Sembunyikan garis grid vertikal agar rapi
+                    }
+                }
             }
         }
     });
