@@ -32,8 +32,8 @@ function getStatusColor(kategori) {
 // ==========================================
 function initMap() {
     map = L.map('map').setView([-7.75, 112.75], 7);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap &copy; CartoDB'
     }).addTo(map);
 }
 
