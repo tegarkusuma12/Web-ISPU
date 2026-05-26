@@ -119,52 +119,97 @@ def cek_status():
     return jsonify({"pesan": "Server Backend ISPU Jatim Aktif!"}), 200
 
 # ------------------------------------------------------------------------------
-# SKENARIO B: ON-THE-FLY PREDIKSI 24 JAM KE DEPAN
+# SKENARIO B: ON-THE-FLY PREDIKSI 24 JAM KE DEPAN (PENJAHITAN WAKTU)
 # ------------------------------------------------------------------------------
 @app.route('/api/ispu/rolling_24h', methods=['GET'])
 @cache.cached(timeout=900)
 def get_ispu_rolling_24h():
-    """Menarik prediksi 24 jam ke depan (Logikamu dipertahankan penuh)"""
+    """Menarik prediksi 24 jam ke depan dengan Rolling Average KEMENLHK P.14/2020"""
     try:
         sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
         sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
-        akhir_utc = sekarang_utc + timedelta(hours=24)
         
+        akhir_utc = sekarang_utc + timedelta(hours=24)
+        batas_historis_utc = sekarang_utc - timedelta(hours=23) # Mundur 23 jam
+        
+        # 1. Tarik Data Historis 24 Jam terakhir untuk SEMUA kota sekaligus
+        data_historis = db.session.query(DataHistoris, WilayahDetails)\
+                          .join(WilayahDetails, DataHistoris.id_wilayah == WilayahDetails.id_wilayah)\
+                          .filter(DataHistoris.waktu_aktual >= batas_historis_utc, DataHistoris.waktu_aktual <= sekarang_utc)\
+                          .order_by(WilayahDetails.nama_wilayah, DataHistoris.waktu_aktual.asc()).all()
+        
+        # 2. Tarik Tebakan AI 24 Jam ke depan untuk SEMUA kota sekaligus
         data_prediksi = db.session.query(Predictions, WilayahDetails)\
                           .join(WilayahDetails, Predictions.id_wilayah == WilayahDetails.id_wilayah)\
-                          .filter(Predictions.target_waktu >= sekarang_utc, Predictions.target_waktu <= akhir_utc)\
+                          .filter(Predictions.target_waktu > sekarang_utc, Predictions.target_waktu <= akhir_utc)\
                           .order_by(WilayahDetails.nama_wilayah, Predictions.target_waktu.asc()).all()
         
         from collections import defaultdict
-        grouped_data = defaultdict(list)
+        hist_dict = defaultdict(list)
+        pred_dict = defaultdict(list)
         
-        for prediksi, wilayah in data_prediksi:
-            waktu_target_utc = pytz.UTC.localize(prediksi.target_waktu)
-            waktu_target_wib = waktu_target_utc.astimezone(TZ_WIB)
+        for hist, wil in data_historis:
+            hist_dict[wil.nama_wilayah].append(hist)
             
-            selisih_jam = int((waktu_target_wib - sekarang_wib).total_seconds() / 3600)
-            hari_str = "Hari Ini" if waktu_target_wib.date() == sekarang_wib.date() else "Besok"
+        for pred, wil in data_prediksi:
+            pred_dict[wil.nama_wilayah].append(pred)
             
-            dict_polutan = {
-                'PM25': prediksi.pred_pm25, 'PM10': prediksi.pred_pm10, 
-                'CO': prediksi.pred_co, 'NO2': prediksi.pred_no2, 
-                'O3': prediksi.pred_ozon, 'SO2': prediksi.pred_so2
-            }
-            # Menghitung ISPU mendadak (Skenario B)
-            ispu_calc = kalkulasi_ispu_final(dict_polutan)
+        grouped_data = defaultdict(list)
+        daftar_kota = set(list(hist_dict.keys()) + list(pred_dict.keys()))
+        
+        # 3. Proses Penjahitan Waktu (Sliding Window) per Kota
+        for kota in daftar_kota:
+            h_list = hist_dict[kota]
+            p_list = pred_dict[kota]
             
-            grouped_data[wilayah.nama_wilayah].append({
-                "indeks_waktu": selisih_jam,
-                "jam": waktu_target_wib.strftime("%H:00"),
-                "hari": hari_str,
-                "nilai_ispu": ispu_calc['skor_ispu_final'],
-                "kategori": ispu_calc['kategori_ispu'],
-                "parameter_kritis": ispu_calc['polutan_kritis'],
-                "pm25": prediksi.pred_pm25, "pm10": prediksi.pred_pm10, 
-                "co": prediksi.pred_co, "no2": prediksi.pred_no2, 
-                "o3": prediksi.pred_ozon, "so2": prediksi.pred_so2
-            })
+            # Ekstrak menjadi array/list
+            h_pm25 = [h.pm25 for h in h_list]; p_pm25 = [p.pred_pm25 for p in p_list]
+            h_pm10 = [h.pm10 for h in h_list]; p_pm10 = [p.pred_pm10 for p in p_list]
+            h_so2  = [h.so2 for h in h_list];  p_so2  = [p.pred_so2 for p in p_list]
+            h_co   = [h.co for h in h_list];   p_co   = [p.pred_co for p in p_list]
+            h_no2  = [h.no2 for h in h_list];  p_no2  = [p.pred_no2 for p in p_list]
+            h_o3   = [h.ozon for h in h_list]; p_o3   = [p.pred_ozon for p in p_list]
             
+            for i, pred in enumerate(p_list):
+                waktu_target_utc = pytz.UTC.localize(pred.target_waktu)
+                waktu_target_wib = waktu_target_utc.astimezone(TZ_WIB)
+                
+                selisih_jam = int((waktu_target_wib - sekarang_wib).total_seconds() / 3600)
+                hari_str = "Hari Ini" if waktu_target_wib.date() == sekarang_wib.date() else "Besok"
+                
+                # Menjahit Array: (Sisa Masa Lalu) + (Tebakan Masa Depan sampai jam ke-i)
+                potong_historis = 23 - i 
+                
+                # Fungsi potong_historis > 0 mencegah array kosong jika jam ke-24 (dimana riwayat tidak dipakai lagi)
+                gabung_pm25 = (h_pm25[-potong_historis:] if potong_historis > 0 else []) + p_pm25[:i+1]
+                gabung_pm10 = (h_pm10[-potong_historis:] if potong_historis > 0 else []) + p_pm10[:i+1]
+                gabung_so2  = (h_so2[-potong_historis:] if potong_historis > 0 else []) + p_so2[:i+1]
+                gabung_co   = (h_co[-potong_historis:] if potong_historis > 0 else []) + p_co[:i+1]
+                gabung_no2  = (h_no2[-potong_historis:] if potong_historis > 0 else []) + p_no2[:i+1]
+                gabung_o3   = (h_o3[-potong_historis:] if potong_historis > 0 else []) + p_o3[:i+1]
+
+                # Keranjang berisi 24 angka siap diserahkan ke Dosen Utama (ispu_logic)
+                dict_polutan_24h = {
+                    'PM25': gabung_pm25, 'PM10': gabung_pm10, 
+                    'CO': gabung_co, 'NO2': gabung_no2, 
+                    'O3': gabung_o3, 'SO2': gabung_so2
+                }
+                
+                ispu_calc = kalkulasi_ispu_final(dict_polutan_24h)
+                
+                grouped_data[kota].append({
+                    "indeks_waktu": selisih_jam,
+                    "jam": waktu_target_wib.strftime("%H:00"),
+                    "hari": hari_str,
+                    "nilai_ispu": ispu_calc['skor_ispu_final'],
+                    "kategori": ispu_calc['kategori_ispu'],
+                    "parameter_kritis": ispu_calc['polutan_kritis'],
+                    # Biarkan frontend menerima angka raw juga untuk keperluan tooltip
+                    "pm25": pred.pred_pm25, "pm10": pred.pred_pm10, 
+                    "co": pred.pred_co, "no2": pred.pred_no2, 
+                    "o3": pred.pred_ozon, "so2": pred.pred_so2
+                })
+                
         hasil_akhir = [{"kota": kota, "timeline": timeline} for kota, timeline in grouped_data.items()]
             
         return jsonify({
@@ -174,7 +219,9 @@ def get_ispu_rolling_24h():
         }), 200
 
     except Exception as e:
+        import traceback
         print(f"DEBUG: Error fatal pada rolling_24h: {str(e)}")
+        print(traceback.format_exc()) # Agar jika ada error, terminalmu memunculkan lokasi persisnya
         return jsonify({"error": "Gagal memproses data timeline per jam."}), 500
 
 # ------------------------------------------------------------------------------
