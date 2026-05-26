@@ -516,23 +516,47 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
     let configOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        devicePixelRatio: window.devicePixelRatio || 2, // Force physical resolution matching display DPI
         plugins: {
             legend: {
                 display: tipeFilter === '24jam', // Tampilkan Legenda HANYA di mode Hybrid 24 Jam
                 position: 'top',
-                labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Outfit', weight: 600 } }
+                labels: { 
+                    usePointStyle: true, 
+                    boxWidth: 8, 
+                    font: { 
+                        family: 'Outfit', 
+                        size: 13,        // Increased slightly for high-resolution clarity
+                        weight: '600'    // String weight representation
+                    },
+                    color: '#1e293b'     // Premium dark slate legend color
+                }
             }
         },
         scales: {
             y: { 
                 beginAtZero: true, 
                 suggestedMax: 150,
-                grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                ticks: {
+                    font: {
+                        family: 'Plus Jakarta Sans',
+                        size: 11,
+                        weight: '500'
+                    },
+                    color: '#64748b'     // Crisp slate-500 tick colors
+                }
             },
             x: {
                 grid: { display: false },
                 ticks: {
-                    maxTicksLimit: tipeFilter === '24jam' ? 12 : 7 // Mencegah tulisan jam berdempetan
+                    maxTicksLimit: tipeFilter === '24jam' ? 12 : 7, // Mencegah tulisan jam berdempetan
+                    font: {
+                        family: 'Plus Jakarta Sans',
+                        size: 11,
+                        weight: '500'
+                    },
+                    color: '#64748b'     // Crisp slate-500 tick colors
                 }
             }
         }
