@@ -20,7 +20,7 @@ TZ_WIB = pytz.timezone('Asia/Jakarta')
 # ==============================================================================
 # MUAT MODEL ML SAAT STARTUP
 # ==============================================================================
-MODEL_PATH = 'data_training/xgb_optuna_multioutput_tegar.pkl'
+MODEL_PATH = 'models/xgb_optuna_multioutput_tegar.pkl'
 if os.path.exists(MODEL_PATH):
     paket_model = joblib.load(MODEL_PATH)
     dict_model_spesialis = paket_model['dict_model_spesialis']
@@ -153,16 +153,6 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
             daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
             df_input = siapkan_fitur_prediksi(df_history_jam, daftar_polutan, fitur_model)
 
-            data_list = [{'waktu_aktual': r.waktu_aktual, 'nama_wilayah': wilayah.nama_wilayah,
-                          'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
-                          'CO': r.co, 'NO2': r.no2, 'O3': r.ozon} for r in riwayat]
-            
-            df_history_jam = pd.DataFrame(data_list)
-            df_history_jam = df_history_jam.ffill().fillna(0)
-            
-            daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
-            df_input = siapkan_fitur_prediksi(df_history_jam, daftar_polutan, fitur_model)
-
             try:
                 dict_prediksi_array = {}
                 import numpy as np 
@@ -267,17 +257,20 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
             if not riwayat_24j:
                 continue
                 
-            jumlah_data = len(riwayat_24j)
-            dict_rata_riil = {
-                'PM25': sum(r.pm25 for r in riwayat_24j) / jumlah_data,
-                'PM10': sum(r.pm10 for r in riwayat_24j) / jumlah_data,
-                'SO2': sum(r.so2 for r in riwayat_24j) / jumlah_data,
-                'CO': sum(r.co for r in riwayat_24j) / jumlah_data,
-                'NO2': sum(r.no2 for r in riwayat_24j) / jumlah_data,
-                'OZON': sum(r.ozon for r in riwayat_24j) / jumlah_data 
+            # --- PERUBAHAN DIMULAI DI SINI ---
+            # scheduler.py HANYA membungkus data mentah menjadi List
+            dict_raw_riil = {
+                'PM25': [r.pm25 for r in riwayat_24j],
+                'PM10': [r.pm10 for r in riwayat_24j],
+                'SO2':  [r.so2 for r in riwayat_24j],
+                'CO':   [r.co for r in riwayat_24j],
+                'NO2':  [r.no2 for r in riwayat_24j],
+                'O3':   [r.ozon for r in riwayat_24j] # Menggunakan 'O3' agar seragam dengan ispu_logic
             }
             
-            hasil_ispu = kalkulasi_ispu_final(dict_rata_riil)
+            # Pendelegasian perhitungan rata-rata dan konversi ke ispu_logic.py
+            hasil_ispu = kalkulasi_ispu_final(dict_raw_riil)
+            # --- PERUBAHAN SELESAI ---
             
             # Ambil id_data dari data jam ini untuk disambungkan ke tabel ispu_historis
             data_terakhir = riwayat_24j[-1]

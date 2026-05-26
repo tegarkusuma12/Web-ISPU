@@ -48,7 +48,9 @@ def hitung_ispu_per_polutan(nama_polutan, konsentrasi):
     return 500
 
 def tentukan_status_ispu(nilai_ispu):
-    if nilai_ispu <= 50:
+    if nilai_ispu == 0:
+        return "Menunggu Data"
+    elif nilai_ispu <= 50:
         return "Baik"
     elif nilai_ispu <= 100:
         return "Sedang"
@@ -59,14 +61,13 @@ def tentukan_status_ispu(nilai_ispu):
     else:
         return "Berbahaya"
 
-def kalkulasi_ispu_final(hasil_prediksi_dict):
+def kalkulasi_ispu_final(hasil_prediksi_dict_list):
     """
-    Input : {'PM25': 45.2, 'CO': 120.0, ...}
-    Output: Dictionary lengkap berisi seluruh skor individu & final 
-            untuk dimasukkan ke tabel ispu_historis di Supabase.
+    Input : Dictionary of Lists berisi 24 jam data mundur.
+            {'PM25': [45.2, 42.1, ...], 'CO': [1200, 1150, ...], ...}
+    Output: Dictionary lengkap berisi skor final rata-rata 24 jam (Aturan KEMENLHK).
     """
-    # Siapkan template skor individu
-    skor_individu: dict[str, int | None] = {
+    skor_individu: dict = {
         'skor_pm25': None,
         'skor_pm10': None,
         'skor_so2': None,
@@ -76,27 +77,38 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
     }
     
     ispu_tertinggi = 0
-    polutan_kritis = ""
+    polutan_kritis = "-"
     
-    for polutan, konsentrasi in hasil_prediksi_dict.items():
+    # Eksekusi List Comprehension & Aturan 75%
+    for polutan, list_konsentrasi in hasil_prediksi_dict_list.items():
         kunci_polutan = polutan.split(' ')[0].replace('.', '').upper()
         
-        # Hitung skor
-        ispu_item = hitung_ispu_per_polutan(kunci_polutan, konsentrasi)
+        if not isinstance(list_konsentrasi, list):
+            list_konsentrasi = [list_konsentrasi]
+            
+        data_valid = [x for x in list_konsentrasi if x is not None and x >= 0]
         
-        # Masukkan ke dalam dictionary skor individu
+        # Validasi Legalitas Data (Minimal 18 jam valid)
+        if len(data_valid) < 18:
+            ispu_item = 0 
+        else:
+            rata_rata_konsentrasi = sum(data_valid) / len(data_valid)
+            ispu_item = hitung_ispu_per_polutan(kunci_polutan, rata_rata_konsentrasi)
+        
         key_db = f"skor_{kunci_polutan.lower()}"
         if key_db in skor_individu:
-            skor_individu[key_db] = ispu_item
+            skor_individu[key_db] = ispu_item if ispu_item > 0 else None
             
-        # Tentukan polutan kritis (pemenang)
         if ispu_item > ispu_tertinggi:
             ispu_tertinggi = ispu_item
             polutan_kritis = kunci_polutan
             
-    status = tentukan_status_ispu(ispu_tertinggi)
+    if ispu_tertinggi > 0:
+        status = tentukan_status_ispu(ispu_tertinggi)
+    else:
+        ispu_tertinggi = 0
+        status = "Data Tidak Valid (<75%)"
     
-    # Gabungkan hasil akhir dengan skor individu
     hasil_akhir = {
         "skor_ispu_final": ispu_tertinggi,
         "polutan_kritis": polutan_kritis,
@@ -108,7 +120,7 @@ def kalkulasi_ispu_final(hasil_prediksi_dict):
 
 
 # ======================================================================
-# BAGIAN BARU: REKAYASA FITUR 
+# BAGIAN BARU: REKAYASA FITUR (Versi Terbaru milikmu)
 # ======================================================================
 
 def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
@@ -118,44 +130,33 @@ def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
     """
     df_temp = df_history_jam.copy()
     
-    # 1. Sesuaikan dengan kolom ERD Baru (waktu_aktual)
     df_temp['waktu_aktual'] = pd.to_datetime(df_temp['waktu_aktual'])
     df_temp = df_temp.sort_values(by='waktu_aktual').reset_index(drop=True)
     
-    # 2. Fitur Temporal 
     df_temp['Bulan'] = df_temp['waktu_aktual'].dt.month
     df_temp['Jam'] = df_temp['waktu_aktual'].dt.hour
     df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int)
     
-    # 3. Fitur History & Rolling 
     n_lags = 24  
 
     for p in daftar_polutan:
-        # Fitur History (Mundur 24 Jam)
         for i in range(1, n_lags + 1):
             df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
             
-        # Fitur Rolling (Nama kolom dikembalikan ke _72 dan hapus .shift(1))
         df_temp[f'{p}_RollMean_72'] = df_temp[p].rolling(window=72).mean()
         df_temp[f'{p}_RollMax_72'] = df_temp[p].rolling(window=72).max()
         
-    # 4. One-Hot Encoding 
     if 'nama_wilayah' in df_temp.columns:
         df_temp = pd.get_dummies(df_temp, columns=['nama_wilayah'])
         df_temp.columns = [col.replace('nama_wilayah_', 'Kota_') for col in df_temp.columns]
     
-    # 5. Ambil BARIS TERAKHIR SAJA (Jam Ini / Prediksi untuk Jam Berikutnya)
     X_prediksi_besok = df_temp.iloc[[-1]].copy()
     
-    # 6. PENYELAMAT DIMENSI (Diperbarui untuk mengatasi Warning Pandas)
-    # Cari kolom apa saja yang diminta oleh model tapi belum ada di data saat ini
     missing_cols = [col for col in kolom_training_asli if col not in X_prediksi_besok.columns]
     
     if missing_cols:
-        # Menambahkan semua kolom yang hilang sekaligus dengan nilai 0 (Bulk Assignment)
         X_prediksi_besok[missing_cols] = 0
             
-    # Hapus kolom yang tidak berguna dan urutkan persis sesuai saat training
     X_prediksi_besok = X_prediksi_besok[kolom_training_asli]
     
     return X_prediksi_besok
