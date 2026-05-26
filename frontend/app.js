@@ -281,18 +281,52 @@ async function renderPetaWarna() {
 }
 
 // ==========================================
-// FUNGSI API GRAFIK 
+// FUNGSI API GRAFIK (HYBRID PAST & FUTURE)
 // ==========================================
 async function fetchIspuData(kota, jumlahHari) {
     try {
         filterHariAktif = jumlahHari;
         const urlSafeKota = encodeURIComponent(kota);
-        const response = await fetch(`http://127.0.0.1:5000/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
         
+        // Tarik data historis dari Backend
+        const response = await fetch(`http://127.0.0.1:5000/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
         if (!response.ok) throw new Error("Data grafik belum tersedia.");
 
         const result = await response.json();
-        updateChart(result.grafik, kota);
+        let dataGrafik = [];
+
+        if (jumlahHari === '24jam') {
+            // 1. Ambil 24 Jam Masa Lalu dari Database (Historis)
+            const masaLalu = result.grafik.map(item => ({
+                tanggal: item.tanggal,
+                nilai_ispu: item.nilai_ispu,
+                is_prediksi: false // Penanda bahwa ini data pasti
+            }));
+
+            // 2. Ambil 24 Jam Masa Depan dari Brankas Frontend (Prediksi)
+            let masaDepan = [];
+            const dataKotaIni = allCitiesData.find(d => d.kota === kota);
+            if (dataKotaIni && dataKotaIni.timeline) {
+                // Slice(1) untuk melewati index 0 (karena "Sekarang" sudah terwakili di ujung data Historis)
+                masaDepan = dataKotaIni.timeline.slice(1).map(t => ({
+                    tanggal: t.jam,
+                    nilai_ispu: t.nilai_ispu,
+                    is_prediksi: true // Penanda bahwa ini data proyeksi
+                }));
+            }
+
+            // Jahit Keduanya!
+            dataGrafik = [...masaLalu, ...masaDepan];
+        } else {
+            // Jika 7 atau 30 Hari, murni data historis saja
+            dataGrafik = result.grafik.map(item => ({
+                tanggal: item.tanggal,
+                nilai_ispu: item.nilai_ispu,
+                is_prediksi: false
+            }));
+        }
+
+        updateChart(dataGrafik, kota, jumlahHari);
 
     } catch (error) {
         console.error("Gagal menarik grafik:", error);
@@ -300,6 +334,7 @@ async function fetchIspuData(kota, jumlahHari) {
     }
 }
 
+// Tidak ada perubahan di ubahFilterHari
 function ubahFilterHari(hari) {
     document.getElementById('btn-24-jam').classList.remove('active');
     document.getElementById('btn-7-hari').classList.remove('active');
@@ -312,7 +347,7 @@ function ubahFilterHari(hari) {
     fetchIspuData(kotaAktif, hari);
 }
 
-function updateChart(dataGrafik, kota) {
+function updateChart(dataGrafik, kota, tipeFilter = '7') {
     const ctx = document.getElementById('ispuChart').getContext('2d');
     
     if (!dataGrafik || dataGrafik.length === 0) {
@@ -320,54 +355,105 @@ function updateChart(dataGrafik, kota) {
         return;
     }
     
-    const labelsWaktu = dataGrafik.map(row => row.tanggal);
-    const dataIspu = dataGrafik.map(row => row.nilai_ispu);
-
     if (myChart) myChart.destroy();
 
-    // MEMBUAT EFEK GRADIEN GLOW BERGRADASI KE TRANSPARAN
+    const labelsWaktu = dataGrafik.map(row => row.tanggal);
     const gradient = ctx.createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(0, 'rgba(13, 110, 253, 0.35)');
     gradient.addColorStop(1, 'rgba(13, 110, 253, 0.00)');
 
-    myChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labelsWaktu,
-            datasets: [{
-                label: `Nilai ISPU ${kota}`,
-                data: dataIspu,
-                borderColor: '#0d6efd',
-                backgroundColor: gradient, // Gunakan gradien di sini
-                borderWidth: 3,
-                pointRadius: dataGrafik.length > 10 ? 2 : 5, 
-                fill: true,
-                tension: 0.3
-            }]
+    let configData = {};
+    let configOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: tipeFilter === '24jam', // Tampilkan Legenda HANYA di mode Hybrid 24 Jam
+                position: 'top',
+                labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Outfit', weight: 600 } }
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false // Sembunyikan legenda default agar header grafik lebih bersih
-                }
+        scales: {
+            y: { 
+                beginAtZero: true, 
+                suggestedMax: 150,
+                grid: { color: 'rgba(0, 0, 0, 0.05)' }
             },
-            scales: {
-                y: { 
-                    beginAtZero: true, 
-                    suggestedMax: 150,
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)' // Gridline yang sangat halus
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false // Sembunyikan garis grid vertikal agar rapi
-                    }
+            x: {
+                grid: { display: false },
+                ticks: {
+                    maxTicksLimit: tipeFilter === '24jam' ? 12 : 7 // Mencegah tulisan jam berdempetan
                 }
             }
         }
+    };
+
+    if (tipeFilter === '24jam') {
+        const dataMasaLalu = [];
+        const dataMasaDepan = [];
+
+        dataGrafik.forEach((row, index) => {
+            if (row.is_prediksi) {
+                dataMasaLalu.push(null);
+                dataMasaDepan.push(row.nilai_ispu);
+            } else {
+                dataMasaLalu.push(row.nilai_ispu);
+                // Trik Visual: Titik terakhir masa lalu disambung ke titik pertama masa depan agar garis tidak putus di tengah
+                if (index < dataGrafik.length - 1 && dataGrafik[index + 1].is_prediksi) {
+                    dataMasaDepan.push(row.nilai_ispu);
+                } else {
+                    dataMasaDepan.push(null);
+                }
+            }
+        });
+
+        configData = {
+            labels: labelsWaktu,
+            datasets: [
+                {
+                    label: 'Historis (Kemarin - Sekarang)',
+                    data: dataMasaLalu,
+                    borderColor: '#0d6efd',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    pointRadius: 1, 
+                    fill: true,
+                    tension: 0.4 // Membuat kurva melengkung halus
+                },
+                {
+                    label: 'Prediksi (1 - 24 Jam Kedepan)',
+                    data: dataMasaDepan,
+                    borderColor: '#0d6efd',
+                    borderDash: [6, 6], // Membuat garis putus-putus
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    pointRadius: 1,
+                    fill: false,
+                    tension: 0.4
+                }
+            ]
+        };
+    } else {
+        // Tampilan Standar Harian (7 Hari / 30 Hari)
+        configData = {
+            labels: labelsWaktu,
+            datasets: [{
+                label: `Nilai ISPU ${kota}`,
+                data: dataGrafik.map(row => row.nilai_ispu),
+                borderColor: '#0d6efd',
+                backgroundColor: gradient,
+                borderWidth: 3,
+                pointRadius: dataGrafik.length > 10 ? 2 : 5, 
+                fill: true,
+                tension: 0.4
+            }]
+        };
+    }
+
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: configData,
+        options: configOptions
     });
 }
 
