@@ -134,12 +134,15 @@ function updateLeaderboard() {
         return {
             kota: d.kota,
             nilai_ispu: timeData ? timeData.nilai_ispu : 0,
-            kategori: timeData ? timeData.kategori : "Menunggu"
+            kategori: timeData ? timeData.kategori : "Menunggu Data"
         };
     });
+    // 1. FILTER: Diskualifikasi kota yang datanya tidak valid (nilai 0)
+    const validData = currentData.filter(d => d.nilai_ispu > 0);
 
-    const sortedTerburuk = [...currentData].sort((a, b) => b.nilai_ispu - a.nilai_ispu).slice(0, 5);
-    const sortedTerbersih = [...currentData].sort((a, b) => a.nilai_ispu - b.nilai_ispu).slice(0, 5);
+    // 2. SORTING DARI DATA YANG VALID
+    const sortedTerburuk = [...validData].sort((a, b) => b.nilai_ispu - a.nilai_ispu).slice(0, 5);
+    const sortedTerbersih = [...validData].sort((a, b) => a.nilai_ispu - b.nilai_ispu).slice(0, 5);
 
 const renderList = (arrayData, containerId) => {
     const container = document.getElementById(containerId);
