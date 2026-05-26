@@ -449,6 +449,14 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            display: inline-block;
+            animation: spin 8s linear infinite;
+        }
 
         .status-badge-inline {
             background: rgba(255, 255, 255, 0.2);
@@ -811,30 +819,10 @@
                         </div>
 
                         <!-- Pollutant Breakdown Grid -->
-                        <div class="row g-2 pt-2 border-top border-white border-opacity-10">
-                            <div class="col-6">
-                                <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" style="border: 1px solid rgba(255,255,255,0.08);">
-                                    <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">PM<sub>2.5</sub></div>
-                                    <div class="fw-bold" style="font-size: 0.9rem;" id="breakdown-pm25">--</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" style="border: 1px solid rgba(255,255,255,0.08);">
-                                    <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">PM<sub>10</sub></div>
-                                    <div class="fw-bold" style="font-size: 0.9rem;" id="breakdown-pm10">--</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" style="border: 1px solid rgba(255,255,255,0.08);">
-                                    <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">SO<sub>2</sub></div>
-                                    <div class="fw-bold" style="font-size: 0.9rem;" id="breakdown-so2">--</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" style="border: 1px solid rgba(255,255,255,0.08);">
-                                    <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">CO</div>
-                                    <div class="fw-bold" style="font-size: 0.9rem;" id="breakdown-co">--</div>
-                                </div>
+                        <div id="pollutant-grid" class="row g-2 pt-2 border-top border-white border-opacity-10">
+                            <!-- Populated dynamically by app.js (5 remaining pollutants) -->
+                            <div class="col-12 text-center py-2 text-white-50" style="font-size: 0.8rem;">
+                                <i class="bi bi-cpu me-1"></i> Memuat detail polutan...
                             </div>
                         </div>
                     </div>

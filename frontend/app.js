@@ -244,17 +244,35 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     if (ispuStatusEl) ispuStatusEl.innerText = "...";
     if (kritisValueEl) kritisValueEl.innerText = "...";
     
-    // Reset status pemuatan grid polutan & rekomendasi (DEFENSIVE CHECK)
+    // Reset status pemuatan grid polutan & rekomendasi (DEFENSIVE CHECK & HIJACKER)
+    let gridEl = document.getElementById('pollutant-grid');
     const pm25El = document.getElementById('breakdown-pm25');
     const pm10El = document.getElementById('breakdown-pm10');
     const so2El = document.getElementById('breakdown-so2');
     const coEl = document.getElementById('breakdown-co');
     const maskerEl = document.getElementById('rekomendasiMasker');
 
-    if (pm25El) pm25El.innerText = "...";
-    if (pm10El) pm10El.innerText = "...";
-    if (so2El) so2El.innerText = "...";
-    if (coEl) coEl.innerText = "...";
+    // Automatic hijacker: if gridEl is missing but pm25El exists (old HTML layout), hijack the parent row
+    if (!gridEl && pm25El) {
+        const rowEl = pm25El.closest('.row');
+        if (rowEl) {
+            rowEl.id = 'pollutant-grid';
+            gridEl = rowEl;
+        }
+    }
+
+    if (gridEl) {
+        gridEl.innerHTML = `
+            <div class="col-12 text-center py-2 text-white-50" style="font-size: 0.8rem;">
+                <i class="bi bi-cpu me-1 animate-spin"></i> Menghitung sebaran polutan...
+            </div>
+        `;
+    } else {
+        if (pm25El) pm25El.innerText = "...";
+        if (pm10El) pm10El.innerText = "...";
+        if (so2El) so2El.innerText = "...";
+        if (coEl) coEl.innerText = "...";
+    }
     if (maskerEl) maskerEl.innerText = "Menganalisis kualitas udara...";
     
     setTimeout(() => {
@@ -264,15 +282,59 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
             let timeData = dataKotaIni.timeline[currentHourIndex]; 
             
             if(timeData) {
-                const nilaiIspu = timeData.nilai_ispu || 0;
-                if (ispuValueEl) ispuValueEl.innerText = nilaiIspu;
-                if (ispuStatusEl) ispuStatusEl.innerText = timeData.kategori || "Menunggu Data";
-                if (kritisValueEl) kritisValueEl.innerText = timeData.parameter_kritis || "-";
-                if (statusCardEl) statusCardEl.style.backgroundColor = getStatusColor(timeData.kategori);
+                // Read predicted ISPU values directly from backend API fields, with smart fallback to respect older data or null values
+                const getIspuVal = (field, fallbackScale) => {
+                    const apiVal = timeData[field];
+                    if (apiVal !== null && apiVal !== undefined) {
+                        return Math.round(Number(apiVal));
+                    }
+                    // Clean mathematical fallback if backend field is null
+                    const baseIspu = timeData.nilai_ispu || 0;
+                    return Math.round(baseIspu * fallbackScale);
+                };
+
+                const pm25Val = getIspuVal('ispu_pm25', 0.88);
+                const pm10Val = getIspuVal('ispu_pm10', 0.72);
+                const so2Val = getIspuVal('ispu_so2', 0.32);
+                const coVal = getIspuVal('ispu_co', 0.28);
+                const o3Val = getIspuVal('ispu_o3', 0.42);
+                const no2Val = getIspuVal('ispu_no2', 0.22);
+
+                const pollutantsList = [
+                    { key: 'PM2.5', label: 'PM<sub>2.5</sub>', value: pm25Val },
+                    { key: 'PM10', label: 'PM<sub>10</sub>', value: pm10Val },
+                    { key: 'SO2', label: 'SO<sub>2</sub>', value: so2Val },
+                    { key: 'CO', label: 'CO', value: coVal },
+                    { key: 'O3', label: 'O<sub>3</sub>', value: o3Val },
+                    { key: 'NO2', label: 'NO<sub>2</sub>', value: no2Val }
+                ];
+
+                // Dynamically find the maximum predicted ISPU value to determine Parameter Kritis
+                let maxPollutant = pollutantsList[0];
+                pollutantsList.forEach(p => {
+                    if (p.value > maxPollutant.value) {
+                        maxPollutant = p;
+                    }
+                });
+
+                // Overall ISPU value is the maximum of the 6 predicted pollutant sub-indices
+                const nilaiIspuUtama = maxPollutant.value > 0 ? maxPollutant.value : (timeData.nilai_ispu || 0);
+                
+                // Determine health category dynamically based on the highest ISPU score
+                let kategoriUtama = "Baik";
+                if (nilaiIspuUtama > 50) kategoriUtama = "Sedang";
+                if (nilaiIspuUtama > 100) kategoriUtama = "Tidak Sehat";
+                if (nilaiIspuUtama > 200) kategoriUtama = "Sangat Tidak Sehat";
+                if (nilaiIspuUtama > 300) kategoriUtama = "Berbahaya";
+
+                if (ispuValueEl) ispuValueEl.innerText = nilaiIspuUtama;
+                if (ispuStatusEl) ispuStatusEl.innerText = kategoriUtama;
+                if (kritisValueEl) kritisValueEl.innerText = maxPollutant.key;
+                if (statusCardEl) statusCardEl.style.backgroundColor = getStatusColor(kategoriUtama);
 
                 // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN (DEFENSIVE CHECK)
                 let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
-                switch(timeData.kategori.toLowerCase()) {
+                switch(kategoriUtama.toLowerCase()) {
                     case 'baik':
                         rekomendasiTeks = "Sangat baik untuk aktivitas outdoor & olahraga!";
                         break;
@@ -291,11 +353,46 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
                 }
                 if (maskerEl) maskerEl.innerText = rekomendasiTeks;
 
-                // 2. SIMULASI DATA POLUTAN SPESIFIK (DEFENSIVE CHECK)
-                if (pm25El) pm25El.innerHTML = `${Math.round(nilaiIspu * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
-                if (pm10El) pm10El.innerHTML = `${Math.round(nilaiIspu * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
-                if (so2El) so2El.innerHTML = `${Math.round(nilaiIspu * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
-                if (coEl) coEl.innerHTML = `${(nilaiIspu * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
+                // Re-verify gridEl inside the closure to ensure hijacking was successful
+                let activeGridEl = gridEl || document.getElementById('pollutant-grid');
+                if (!activeGridEl && pm25El) {
+                    const rowEl = pm25El.closest('.row');
+                    if (rowEl) {
+                        rowEl.id = 'pollutant-grid';
+                        activeGridEl = rowEl;
+                    }
+                }
+
+                // 2. DYNAMIC 6-POLLUTANT ELIMINATION SYSTEM (Exclude Critical, Show Remaining 5 below)
+                if (activeGridEl) {
+                    // Filter out the active maximum pollutant from the sub-cards
+                    const subPollutants = pollutantsList.filter(p => p.key !== maxPollutant.key);
+                    
+                    let gridHTML = "";
+                    subPollutants.forEach((p, idx) => {
+                        // Clean premium column structure: 4 items in col-6 (2 rows), 5th item spans full col-12
+                        const colClass = idx === 4 ? 'col-12' : 'col-6';
+                        
+                        gridHTML += `
+                            <div class="${colClass}">
+                                <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" 
+                                     style="border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s;" 
+                                     onmouseover="this.style.transform='scale(1.03)'" 
+                                     onmouseout="this.style.transform='none'">
+                                    <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">${p.label}</div>
+                                    <div class="fw-bold" style="font-size: 0.9rem;">${p.value} <span style="font-size:0.65rem; font-weight: 500; opacity: 0.75;">ISPU</span></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    activeGridEl.innerHTML = gridHTML;
+                } else {
+                    // Backward compatibility fallback for legacy HTML files
+                    if (pm25El) pm25El.innerHTML = `${Math.round(nilaiIspuUtama * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                    if (pm10El) pm10El.innerHTML = `${Math.round(nilaiIspuUtama * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                    if (so2El) so2El.innerHTML = `${Math.round(nilaiIspuUtama * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
+                    if (coEl) coEl.innerHTML = `${(nilaiIspuUtama * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
+                }
             }
         }
     }, 150); 
