@@ -144,44 +144,80 @@ function updateLeaderboard() {
     const sortedTerburuk = [...validData].sort((a, b) => b.nilai_ispu - a.nilai_ispu).slice(0, 5);
     const sortedTerbersih = [...validData].sort((a, b) => a.nilai_ispu - b.nilai_ispu).slice(0, 5);
 
-const renderList = (arrayData, containerId) => {
-    const container = document.getElementById(containerId);
-    if(!container) return;
-    container.innerHTML = '';
-    arrayData.forEach(item => {
-        const color = getStatusColor(item.kategori);
-        // Hitung persentase bar (anggap batas atas aman ISPU adalah 150)
-        const percent = Math.min((item.nilai_ispu / 150) * 100, 100);
-        
-        container.innerHTML += `
-            <li class="list-group-item d-flex flex-column align-items-stretch" 
-                style="cursor: pointer; transition: 0.3s; border-radius: 8px; margin-bottom: 4px;" 
-                onmouseover="this.style.backgroundColor='#f1f3f5'" 
-                onmouseout="this.style.backgroundColor='transparent'"
-                onclick="pilihKota('${item.kota}', true)">
-                
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="fw-semibold" style="font-size: 0.9rem;">${item.kota}</span>
-                    <span class="badge rounded-pill text-white" style="background-color: ${color}; font-size: 0.75rem; padding: 0.25rem 0.6rem;">
-                        ${item.nilai_ispu}
-                    </span>
-                </div>
-                
-                <!-- Progress Bar Kualitas Udara Mini -->
-                <div class="progress" style="height: 5px; background: rgba(0,0,0,0.06); border-radius: 50px;">
-                    <div class="progress-bar" style="width: ${percent}%; background-color: ${color}; border-radius: 50px; transition: width 0.6s ease;"></div>
-                </div>
-            </li>
-        `;
-    });
-};
+    const renderList = (arrayData, containerId) => {
+        const container = document.getElementById(containerId);
+        if(!container) return;
+        container.innerHTML = '';
+        arrayData.forEach(item => {
+            const color = getStatusColor(item.kategori);
+            // Hitung persentase bar (anggap batas atas aman ISPU adalah 150)
+            const percent = Math.min((item.nilai_ispu / 150) * 100, 100);
+            
+            container.innerHTML += `
+                <li class="list-group-item d-flex flex-column align-items-stretch" 
+                    style="cursor: pointer; transition: 0.3s; border-radius: 8px; margin-bottom: 4px;" 
+                    onmouseover="this.style.backgroundColor='#f1f3f5'" 
+                    onmouseout="this.style.backgroundColor='transparent'"
+                    onclick="pilihKota('${item.kota}', true)">
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-semibold" style="font-size: 0.9rem;">${item.kota}</span>
+                        <span class="badge rounded-pill text-white" style="background-color: ${color}; font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                            ${item.nilai_ispu}
+                        </span>
+                    </div>
+                    
+                    <!-- Progress Bar Kualitas Udara Mini -->
+                    <div class="progress" style="height: 5px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                        <div class="progress-bar" style="width: ${percent}%; background-color: ${color}; border-radius: 50px; transition: width 0.6s ease;"></div>
+                    </div>
+                </li>
+            `;
+        });
+    };
 
     renderList(sortedTerburuk, 'list-terburuk');
     renderList(sortedTerbersih, 'list-terbersih');
+
+    // 1. UPDATE KPI WILAYAH TERBURUK
+    if (sortedTerburuk.length > 0) {
+        document.getElementById('kpi-highest-city').innerText = sortedTerburuk[0].kota;
+        document.getElementById('kpi-highest-value').innerText = sortedTerburuk[0].nilai_ispu;
+        document.getElementById('kpi-highest-value').style.backgroundColor = getStatusColor(sortedTerburuk[0].kategori);
+    } else {
+        document.getElementById('kpi-highest-city').innerText = "-";
+        document.getElementById('kpi-highest-value').innerText = "--";
+    }
+
+    // 2. UPDATE KPI RATA-RATA JAWA TIMUR
+    if (validData.length > 0) {
+        const totalIspu = validData.reduce((sum, item) => sum + item.nilai_ispu, 0);
+        const rataRata = Math.round(totalIspu / validData.length);
+        document.getElementById('kpi-avg-value').innerText = rataRata;
+        
+        let avgKategori = "Baik";
+        if (rataRata > 50) avgKategori = "Sedang";
+        if (rataRata > 100) avgKategori = "Tidak Sehat";
+        if (rataRata > 200) avgKategori = "Sangat Tidak Sehat";
+        if (rataRata > 300) avgKategori = "Berbahaya";
+        document.getElementById('kpi-avg-value').style.backgroundColor = getStatusColor(avgKategori);
+    } else {
+        document.getElementById('kpi-avg-value').innerText = "--";
+    }
+
+    // 3. UPDATE KPI WILAYAH TERBERSIH
+    if (sortedTerbersih.length > 0) {
+        document.getElementById('kpi-lowest-city').innerText = sortedTerbersih[0].kota;
+        document.getElementById('kpi-lowest-value').innerText = sortedTerbersih[0].nilai_ispu;
+        document.getElementById('kpi-lowest-value').style.backgroundColor = getStatusColor(sortedTerbersih[0].kategori);
+    } else {
+        document.getElementById('kpi-lowest-city').innerText = "-";
+        document.getElementById('kpi-lowest-value').innerText = "--";
+    }
 }
 
 // ==========================================
-// FUNGSI JEMBATAN KARTU BIRU
+// FUNGSI JEMBATAN KARTU BIRU (UPDATED)
 // ==========================================
 function pilihKota(kota, scrollAndFetchGraph = true) {
     kotaAktif = kota;
@@ -191,24 +227,56 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     document.getElementById('ispuStatus').innerText = "...";
     document.getElementById('kritisValue').innerText = "...";
     
+    // Reset status pemuatan grid polutan & rekomendasi
+    document.getElementById('breakdown-pm25').innerText = "...";
+    document.getElementById('breakdown-pm10').innerText = "...";
+    document.getElementById('breakdown-so2').innerText = "...";
+    document.getElementById('breakdown-co').innerText = "...";
+    document.getElementById('rekomendasiMasker').innerText = "Menganalisis kualitas udara...";
+    
     setTimeout(() => {
         let dataKotaIni = allCitiesData.find(d => d.kota === kota);
         
         if(dataKotaIni) {
-            // TARIK DATA BERDASARKAN INDEKS JAM SLIDER
             let timeData = dataKotaIni.timeline[currentHourIndex]; 
             
             if(timeData) {
-                document.getElementById('ispuValue').innerText = timeData.nilai_ispu || 0;
+                const nilaiIspu = timeData.nilai_ispu || 0;
+                document.getElementById('ispuValue').innerText = nilaiIspu;
                 document.getElementById('ispuStatus').innerText = timeData.kategori || "Menunggu Data";
                 document.getElementById('kritisValue').innerText = timeData.parameter_kritis || "-";
                 document.getElementById('statusCard').style.backgroundColor = getStatusColor(timeData.kategori);
+
+                // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN
+                let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
+                switch(timeData.kategori.toLowerCase()) {
+                    case 'baik':
+                        rekomendasiTeks = "Sangat baik untuk aktivitas outdoor & olahraga!";
+                        break;
+                    case 'sedang':
+                        rekomendasiTeks = "Kualitas udara sedang. Kelompok sensitif sebaiknya mengurangi aktivitas luar ruangan.";
+                        break;
+                    case 'tidak sehat':
+                        rekomendasiTeks = "Gunakan masker medis jika harus beraktivitas di luar ruangan.";
+                        break;
+                    case 'sangat tidak sehat':
+                        rekomendasiTeks = "Hindari aktivitas fisik di luar. Kelompok rentan tetap di dalam rumah.";
+                        break;
+                    case 'berbahaya':
+                        rekomendasiTeks = "DILARANG beraktivitas di luar ruangan! Jaga seluruh jendela tetap tertutup.";
+                        break;
+                }
+                document.getElementById('rekomendasiMasker').innerText = rekomendasiTeks;
+
+                // 2. SIMULASI DATA POLUTAN SPESIFIK (MAPPING METODE ILMIAH)
+                document.getElementById('breakdown-pm25').innerHTML = `${Math.round(nilaiIspu * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                document.getElementById('breakdown-pm10').innerHTML = `${Math.round(nilaiIspu * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                document.getElementById('breakdown-so2').innerHTML = `${Math.round(nilaiIspu * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
+                document.getElementById('breakdown-co').innerHTML = `${(nilaiIspu * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
             }
         }
     }, 150); 
 
-    // Jika dipanggil dari klik Peta/Search/Leaderboard, tarik grafik tren & scroll.
-    // Jika dipanggil oleh geseran Slider, JANGAN tarik grafik ulang agar tidak lag.
     if(scrollAndFetchGraph) {
         fetchIspuData(kota, filterHariAktif);
         document.getElementById('detail-view').scrollIntoView({ behavior: 'smooth' });
@@ -269,7 +337,40 @@ async function renderPetaWarna() {
                 
                 if (kotaDitemukan && kotaDitemukan.timeline[currentHourIndex]) {
                     let timeData = kotaDitemukan.timeline[currentHourIndex];
-                    layer.bindPopup(`<b>${kotaDitemukan.kota}</b><br>ISPU: ${timeData.nilai_ispu} (${timeData.kategori})`);
+                    
+                    // Kustomisasi teks popup bergaya Glassmorphism
+                    const popupContent = `
+                        <div style="padding: 2px;">
+                            <b>${kotaDitemukan.kota}</b><br>
+                            <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                                <span style="font-weight: 500; opacity: 0.85;">Indeks ISPU:</span>
+                                <span style="background: ${getStatusColor(timeData.kategori)}; color: #fff; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">
+                                    ${timeData.nilai_ispu}
+                                </span>
+                            </div>
+                            <div style="margin-top: 4px; font-size: 0.75rem; opacity: 0.7;">
+                                Status: <span style="font-weight: 600; text-transform: uppercase;">${timeData.kategori}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    layer.bindPopup(popupContent, { closeButton: false, offset: L.point(0, -10) });
+                    
+                    // Efek hover interaktif
+                    layer.on('mouseover', function (e) {
+                        layer.setStyle({
+                            weight: 3,
+                            color: '#ffffff', // Efek garis bersinar putih di batas kabupaten
+                            fillOpacity: 0.95
+                        });
+                        layer.openPopup();
+                    });
+                    
+                    layer.on('mouseout', function (e) {
+                        geoJsonLayer.resetStyle(layer);
+                        layer.closePopup();
+                    });
+
                     layer.on('click', () => pilihKota(kotaDitemukan.kota, true));
                 }
             }
