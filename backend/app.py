@@ -204,10 +204,21 @@ def get_ispu_rolling_24h():
                     "nilai_ispu": ispu_calc['skor_ispu_final'],
                     "kategori": ispu_calc['kategori_ispu'],
                     "parameter_kritis": ispu_calc['polutan_kritis'],
+
+                    "ispu_pm25": ispu_calc.get('skor_pm25', 0),
+                    "ispu_pm10": ispu_calc.get('skor_pm10', 0),
+                    "ispu_so2": ispu_calc.get('skor_so2', 0),
+                    "ispu_co": ispu_calc.get('skor_co', 0),
+                    "ispu_no2": ispu_calc.get('skor_no2', 0),
+                    "ispu_o3": ispu_calc.get('skor_o3', 0),
+
                     # Biarkan frontend menerima angka raw juga untuk keperluan tooltip
-                    "pm25": pred.pred_pm25, "pm10": pred.pred_pm10, 
-                    "co": pred.pred_co, "no2": pred.pred_no2, 
-                    "o3": pred.pred_ozon, "so2": pred.pred_so2
+                    "pm25": pred.pred_pm25,
+                    "pm10": pred.pred_pm10, 
+                    "co": pred.pred_co,
+                    "no2": pred.pred_no2, 
+                    "o3": pred.pred_ozon,
+                    "so2": pred.pred_so2
                 })
                 
         hasil_akhir = [{"kota": kota, "timeline": timeline} for kota, timeline in grouped_data.items()]
