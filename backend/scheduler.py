@@ -20,7 +20,7 @@ TZ_WIB = pytz.timezone('Asia/Jakarta')
 # ==============================================================================
 # MUAT MODEL ML SAAT STARTUP
 # ==============================================================================
-MODEL_PATH = 'data_training/xgb_optuna_multioutput_tegar.pkl'
+MODEL_PATH = 'models/xgb_optuna_multioutput_tegar.pkl'
 if os.path.exists(MODEL_PATH):
     paket_model = joblib.load(MODEL_PATH)
     dict_model_spesialis = paket_model['dict_model_spesialis']
@@ -148,16 +148,6 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                 # Gabungkan menjadi 72 baris utuh
                 df_history_jam = pd.concat([tambahan, df_history_jam], ignore_index=True)
                 
-            df_history_jam = df_history_jam.ffill().fillna(0)
-            
-            daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
-            df_input = siapkan_fitur_prediksi(df_history_jam, daftar_polutan, fitur_model)
-
-            data_list = [{'waktu_aktual': r.waktu_aktual, 'nama_wilayah': wilayah.nama_wilayah,
-                          'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
-                          'CO': r.co, 'NO2': r.no2, 'O3': r.ozon} for r in riwayat]
-            
-            df_history_jam = pd.DataFrame(data_list)
             df_history_jam = df_history_jam.ffill().fillna(0)
             
             daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
