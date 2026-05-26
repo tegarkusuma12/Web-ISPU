@@ -585,7 +585,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
             labels: labelsWaktu,
             datasets: [
                 {
-                    label: 'Historis (Kemarin - Sekarang)',
+                    label: ' Historis (Kemarin - Sekarang)',
                     data: dataMasaLalu,
                     borderColor: ispuBorderGradient, // Menerapkan gradien dinamis pada garis
                     backgroundColor: ispuFillGradient,   // Menerapkan gradien dinamis pada fill
@@ -595,7 +595,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
                     tension: 0.4 // Membuat kurva melengkung halus
                 },
                 {
-                    label: 'Prediksi (1 - 24 Jam Kedepan)',
+                    label: ' Prediksi (1 - 24 Jam Kedepan)',
                     data: dataMasaDepan,
                     borderColor: ispuBorderGradient, // Gradien dinamis pada garis prediksi
                     borderDash: [6, 6], // Membuat garis putus-putus
