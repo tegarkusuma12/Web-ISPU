@@ -179,40 +179,51 @@ function updateLeaderboard() {
     renderList(sortedTerburuk, 'list-terburuk');
     renderList(sortedTerbersih, 'list-terbersih');
 
-    // 1. UPDATE KPI WILAYAH TERBURUK
+    // 1. UPDATE KPI WILAYAH TERBURUK (DEFENSIVE CHECK)
+    const kpiHighestCity = document.getElementById('kpi-highest-city');
+    const kpiHighestValue = document.getElementById('kpi-highest-value');
     if (sortedTerburuk.length > 0) {
-        document.getElementById('kpi-highest-city').innerText = sortedTerburuk[0].kota;
-        document.getElementById('kpi-highest-value').innerText = sortedTerburuk[0].nilai_ispu;
-        document.getElementById('kpi-highest-value').style.backgroundColor = getStatusColor(sortedTerburuk[0].kategori);
+        if (kpiHighestCity) kpiHighestCity.innerText = sortedTerburuk[0].kota;
+        if (kpiHighestValue) {
+            kpiHighestValue.innerText = sortedTerburuk[0].nilai_ispu;
+            kpiHighestValue.style.backgroundColor = getStatusColor(sortedTerburuk[0].kategori);
+        }
     } else {
-        document.getElementById('kpi-highest-city').innerText = "-";
-        document.getElementById('kpi-highest-value').innerText = "--";
+        if (kpiHighestCity) kpiHighestCity.innerText = "-";
+        if (kpiHighestValue) kpiHighestValue.innerText = "--";
     }
 
-    // 2. UPDATE KPI RATA-RATA JAWA TIMUR
-    if (validData.length > 0) {
-        const totalIspu = validData.reduce((sum, item) => sum + item.nilai_ispu, 0);
-        const rataRata = Math.round(totalIspu / validData.length);
-        document.getElementById('kpi-avg-value').innerText = rataRata;
-        
-        let avgKategori = "Baik";
-        if (rataRata > 50) avgKategori = "Sedang";
-        if (rataRata > 100) avgKategori = "Tidak Sehat";
-        if (rataRata > 200) avgKategori = "Sangat Tidak Sehat";
-        if (rataRata > 300) avgKategori = "Berbahaya";
-        document.getElementById('kpi-avg-value').style.backgroundColor = getStatusColor(avgKategori);
-    } else {
-        document.getElementById('kpi-avg-value').innerText = "--";
+    // 2. UPDATE KPI RATA-RATA JAWA TIMUR (DEFENSIVE CHECK)
+    const kpiAvgValue = document.getElementById('kpi-avg-value');
+    if (kpiAvgValue) {
+        if (validData.length > 0) {
+            const totalIspu = validData.reduce((sum, item) => sum + item.nilai_ispu, 0);
+            const rataRata = Math.round(totalIspu / validData.length);
+            kpiAvgValue.innerText = rataRata;
+            
+            let avgKategori = "Baik";
+            if (rataRata > 50) avgKategori = "Sedang";
+            if (rataRata > 100) avgKategori = "Tidak Sehat";
+            if (rataRata > 200) avgKategori = "Sangat Tidak Sehat";
+            if (rataRata > 300) avgKategori = "Berbahaya";
+            kpiAvgValue.style.backgroundColor = getStatusColor(avgKategori);
+        } else {
+            kpiAvgValue.innerText = "--";
+        }
     }
 
-    // 3. UPDATE KPI WILAYAH TERBERSIH
+    // 3. UPDATE KPI WILAYAH TERBERSIH (DEFENSIVE CHECK)
+    const kpiLowestCity = document.getElementById('kpi-lowest-city');
+    const kpiLowestValue = document.getElementById('kpi-lowest-value');
     if (sortedTerbersih.length > 0) {
-        document.getElementById('kpi-lowest-city').innerText = sortedTerbersih[0].kota;
-        document.getElementById('kpi-lowest-value').innerText = sortedTerbersih[0].nilai_ispu;
-        document.getElementById('kpi-lowest-value').style.backgroundColor = getStatusColor(sortedTerbersih[0].kategori);
+        if (kpiLowestCity) kpiLowestCity.innerText = sortedTerbersih[0].kota;
+        if (kpiLowestValue) {
+            kpiLowestValue.innerText = sortedTerbersih[0].nilai_ispu;
+            kpiLowestValue.style.backgroundColor = getStatusColor(sortedTerbersih[0].kategori);
+        }
     } else {
-        document.getElementById('kpi-lowest-city').innerText = "-";
-        document.getElementById('kpi-lowest-value').innerText = "--";
+        if (kpiLowestCity) kpiLowestCity.innerText = "-";
+        if (kpiLowestValue) kpiLowestValue.innerText = "--";
     }
 }
 
@@ -221,18 +232,30 @@ function updateLeaderboard() {
 // ==========================================
 function pilihKota(kota, scrollAndFetchGraph = true) {
     kotaAktif = kota;
-    document.getElementById('selectedCityTitle').innerText = `Detail Wilayah: ${kota}`;
     
-    document.getElementById('ispuValue').innerText = "...";
-    document.getElementById('ispuStatus').innerText = "...";
-    document.getElementById('kritisValue').innerText = "...";
+    const selectedCityTitleEl = document.getElementById('selectedCityTitle');
+    const ispuValueEl = document.getElementById('ispuValue');
+    const ispuStatusEl = document.getElementById('ispuStatus');
+    const kritisValueEl = document.getElementById('kritisValue');
+    const statusCardEl = document.getElementById('statusCard');
+
+    if (selectedCityTitleEl) selectedCityTitleEl.innerText = `Detail Wilayah: ${kota}`;
+    if (ispuValueEl) ispuValueEl.innerText = "...";
+    if (ispuStatusEl) ispuStatusEl.innerText = "...";
+    if (kritisValueEl) kritisValueEl.innerText = "...";
     
-    // Reset status pemuatan grid polutan & rekomendasi
-    document.getElementById('breakdown-pm25').innerText = "...";
-    document.getElementById('breakdown-pm10').innerText = "...";
-    document.getElementById('breakdown-so2').innerText = "...";
-    document.getElementById('breakdown-co').innerText = "...";
-    document.getElementById('rekomendasiMasker').innerText = "Menganalisis kualitas udara...";
+    // Reset status pemuatan grid polutan & rekomendasi (DEFENSIVE CHECK)
+    const pm25El = document.getElementById('breakdown-pm25');
+    const pm10El = document.getElementById('breakdown-pm10');
+    const so2El = document.getElementById('breakdown-so2');
+    const coEl = document.getElementById('breakdown-co');
+    const maskerEl = document.getElementById('rekomendasiMasker');
+
+    if (pm25El) pm25El.innerText = "...";
+    if (pm10El) pm10El.innerText = "...";
+    if (so2El) so2El.innerText = "...";
+    if (coEl) coEl.innerText = "...";
+    if (maskerEl) maskerEl.innerText = "Menganalisis kualitas udara...";
     
     setTimeout(() => {
         let dataKotaIni = allCitiesData.find(d => d.kota === kota);
@@ -242,12 +265,12 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
             
             if(timeData) {
                 const nilaiIspu = timeData.nilai_ispu || 0;
-                document.getElementById('ispuValue').innerText = nilaiIspu;
-                document.getElementById('ispuStatus').innerText = timeData.kategori || "Menunggu Data";
-                document.getElementById('kritisValue').innerText = timeData.parameter_kritis || "-";
-                document.getElementById('statusCard').style.backgroundColor = getStatusColor(timeData.kategori);
+                if (ispuValueEl) ispuValueEl.innerText = nilaiIspu;
+                if (ispuStatusEl) ispuStatusEl.innerText = timeData.kategori || "Menunggu Data";
+                if (kritisValueEl) kritisValueEl.innerText = timeData.parameter_kritis || "-";
+                if (statusCardEl) statusCardEl.style.backgroundColor = getStatusColor(timeData.kategori);
 
-                // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN
+                // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN (DEFENSIVE CHECK)
                 let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
                 switch(timeData.kategori.toLowerCase()) {
                     case 'baik':
@@ -266,20 +289,21 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
                         rekomendasiTeks = "DILARANG beraktivitas di luar ruangan! Jaga seluruh jendela tetap tertutup.";
                         break;
                 }
-                document.getElementById('rekomendasiMasker').innerText = rekomendasiTeks;
+                if (maskerEl) maskerEl.innerText = rekomendasiTeks;
 
-                // 2. SIMULASI DATA POLUTAN SPESIFIK (MAPPING METODE ILMIAH)
-                document.getElementById('breakdown-pm25').innerHTML = `${Math.round(nilaiIspu * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
-                document.getElementById('breakdown-pm10').innerHTML = `${Math.round(nilaiIspu * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
-                document.getElementById('breakdown-so2').innerHTML = `${Math.round(nilaiIspu * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
-                document.getElementById('breakdown-co').innerHTML = `${(nilaiIspu * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
+                // 2. SIMULASI DATA POLUTAN SPESIFIK (DEFENSIVE CHECK)
+                if (pm25El) pm25El.innerHTML = `${Math.round(nilaiIspu * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                if (pm10El) pm10El.innerHTML = `${Math.round(nilaiIspu * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                if (so2El) so2El.innerHTML = `${Math.round(nilaiIspu * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
+                if (coEl) coEl.innerHTML = `${(nilaiIspu * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
             }
         }
     }, 150); 
 
     if(scrollAndFetchGraph) {
         fetchIspuData(kota, filterHariAktif);
-        document.getElementById('detail-view').scrollIntoView({ behavior: 'smooth' });
+        const detailViewEl = document.getElementById('detail-view');
+        if (detailViewEl) detailViewEl.scrollIntoView({ behavior: 'smooth' });
     }
 }
 
@@ -367,7 +391,7 @@ async function renderPetaWarna() {
                     });
                     
                     layer.on('mouseout', function (e) {
-                        geoJsonLayer.resetStyle(layer);
+                        if (geoJsonLayer) geoJsonLayer.resetStyle(layer);
                         layer.closePopup();
                     });
 
@@ -437,19 +461,30 @@ async function fetchIspuData(kota, jumlahHari) {
 
 // Tidak ada perubahan di ubahFilterHari
 function ubahFilterHari(hari) {
-    document.getElementById('btn-24-jam').classList.remove('active');
-    document.getElementById('btn-7-hari').classList.remove('active');
-    document.getElementById('btn-30-hari').classList.remove('active');
+    const btn24 = document.getElementById('btn-24-jam');
+    const btn7 = document.getElementById('btn-7-hari');
+    const btn30 = document.getElementById('btn-30-hari');
 
-    if (hari === '24jam') document.getElementById('btn-24-jam').classList.add('active');
-    else if (hari === 7) document.getElementById('btn-7-hari').classList.add('active');
-    else if (hari === 30) document.getElementById('btn-30-hari').classList.add('active');
+    if (btn24) btn24.classList.remove('active');
+    if (btn7) btn7.classList.remove('active');
+    if (btn30) btn30.classList.remove('active');
+
+    if (hari === '24jam') {
+        if (btn24) btn24.classList.add('active');
+    } else if (hari === 7) {
+        if (btn7) btn7.classList.add('active');
+    } else if (hari === 30) {
+        if (btn30) btn30.classList.add('active');
+    }
     
     fetchIspuData(kotaAktif, hari);
 }
 
 function updateChart(dataGrafik, kota, tipeFilter = '7') {
-    const ctx = document.getElementById('ispuChart').getContext('2d');
+    const chartEl = document.getElementById('ispuChart');
+    if (!chartEl) return;
+    
+    const ctx = chartEl.getContext('2d');
     
     if (!dataGrafik || dataGrafik.length === 0) {
         if (myChart) myChart.destroy();
