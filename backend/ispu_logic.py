@@ -128,16 +128,16 @@ def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
     df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int)
     
     # 3. Fitur History & Rolling 
-    n_lags = 3  
-    window_3_hari = 72 
-    
+    n_lags = 24  
+
     for p in daftar_polutan:
+        # Fitur History (Mundur 24 Jam)
         for i in range(1, n_lags + 1):
             df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
             
-        # Rolling rata-rata dan max untuk 72 jam terakhir
-        df_temp[f'{p}_RollMean_3'] = df_temp[p].shift(1).rolling(window=window_3_hari).mean()
-        df_temp[f'{p}_RollMax_3'] = df_temp[p].shift(1).rolling(window=window_3_hari).max()
+        # Fitur Rolling (Nama kolom dikembalikan ke _72 dan hapus .shift(1))
+        df_temp[f'{p}_RollMean_72'] = df_temp[p].rolling(window=72).mean()
+        df_temp[f'{p}_RollMax_72'] = df_temp[p].rolling(window=72).max()
         
     # 4. One-Hot Encoding 
     if 'nama_wilayah' in df_temp.columns:

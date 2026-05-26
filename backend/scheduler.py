@@ -130,8 +130,28 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                 DataHistoris.waktu_aktual >= batas_waktu_input
             ).order_by(DataHistoris.waktu_aktual.asc()).all()
 
-            if len(riwayat) < 72:
+            if not riwayat: # Jika benar-benar kosong (0), baru lewati
                 continue
+
+            data_list = [{'waktu_aktual': r.waktu_aktual, 'nama_wilayah': wilayah.nama_wilayah,
+                          'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
+                          'CO': r.co, 'NO2': r.no2, 'O3': r.ozon} for r in riwayat]
+            
+            df_history_jam = pd.DataFrame(data_list)
+            
+            # Jika data kurang dari 72 jam, Kloning data tertua
+            if len(df_history_jam) < 72:
+                baris_terlama = df_history_jam.iloc[0:1] # Ambil baris pertama
+                kekurangan = 72 - len(df_history_jam)
+                # Gandakan baris tersebut sebanyak kekurangannya
+                tambahan = pd.concat([baris_terlama] * kekurangan, ignore_index=True)
+                # Gabungkan menjadi 72 baris utuh
+                df_history_jam = pd.concat([tambahan, df_history_jam], ignore_index=True)
+                
+            df_history_jam = df_history_jam.ffill().fillna(0)
+            
+            daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
+            df_input = siapkan_fitur_prediksi(df_history_jam, daftar_polutan, fitur_model)
 
             data_list = [{'waktu_aktual': r.waktu_aktual, 'nama_wilayah': wilayah.nama_wilayah,
                           'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
