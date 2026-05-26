@@ -494,9 +494,23 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
     if (myChart) myChart.destroy();
 
     const labelsWaktu = dataGrafik.map(row => row.tanggal);
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(13, 110, 253, 0.35)');
-    gradient.addColorStop(1, 'rgba(13, 110, 253, 0.00)');
+
+    // ==========================================================
+    // DYNAMIC VERTICAL GRADIENT FOR Border & Background Fill
+    // ==========================================================
+    const ispuBorderGradient = ctx.createLinearGradient(0, 300, 0, 0); 
+    ispuBorderGradient.addColorStop(0, '#198754');    // 0 - 50: Baik (Hijau)
+    ispuBorderGradient.addColorStop(0.3, '#0dcaf0');  // 51 - 100: Sedang (Biru/Cyan)
+    ispuBorderGradient.addColorStop(0.6, '#ffc107');  // 101 - 200: Tidak Sehat (Kuning)
+    ispuBorderGradient.addColorStop(0.85, '#dc3545'); // 201 - 300: Sangat Tidak Sehat (Merah)
+    ispuBorderGradient.addColorStop(1, '#212529');    // 300+: Berbahaya (Hitam)
+
+    const ispuFillGradient = ctx.createLinearGradient(0, 300, 0, 0);
+    ispuFillGradient.addColorStop(0, 'rgba(25, 135, 84, 0.05)');    // Transparan Baik
+    ispuFillGradient.addColorStop(0.3, 'rgba(13, 202, 240, 0.15)'); // Transparan Sedang
+    ispuFillGradient.addColorStop(0.6, 'rgba(255, 193, 7, 0.25)');  // Transparan Tidak Sehat
+    ispuFillGradient.addColorStop(0.85, 'rgba(220, 53, 69, 0.35)'); // Transparan Sangat Tidak Sehat
+    ispuFillGradient.addColorStop(1, 'rgba(33, 37, 41, 0.45)');     // Transparan Berbahaya
 
     let configData = {};
     let configOptions = {
@@ -549,8 +563,8 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
                 {
                     label: 'Historis (Kemarin - Sekarang)',
                     data: dataMasaLalu,
-                    borderColor: '#0d6efd',
-                    backgroundColor: gradient,
+                    borderColor: ispuBorderGradient, // Menerapkan gradien dinamis pada garis
+                    backgroundColor: ispuFillGradient,   // Menerapkan gradien dinamis pada fill
                     borderWidth: 3,
                     pointRadius: 1, 
                     fill: true,
@@ -559,7 +573,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
                 {
                     label: 'Prediksi (1 - 24 Jam Kedepan)',
                     data: dataMasaDepan,
-                    borderColor: '#0d6efd',
+                    borderColor: ispuBorderGradient, // Gradien dinamis pada garis prediksi
                     borderDash: [6, 6], // Membuat garis putus-putus
                     backgroundColor: 'transparent',
                     borderWidth: 3,
@@ -576,8 +590,8 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
             datasets: [{
                 label: `Nilai ISPU ${kota}`,
                 data: dataGrafik.map(row => row.nilai_ispu),
-                borderColor: '#0d6efd',
-                backgroundColor: gradient,
+                borderColor: ispuBorderGradient, // Menerapkan gradien dinamis pada garis
+                backgroundColor: ispuFillGradient,   // Menerapkan gradien dinamis pada fill
                 borderWidth: 3,
                 pointRadius: dataGrafik.length > 10 ? 2 : 5, 
                 fill: true,
