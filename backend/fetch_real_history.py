@@ -2,7 +2,8 @@
 import os
 import requests
 from datetime import datetime, timedelta
-from app import app, db, WilayahDetails, DataHistoris
+from app import app, db, WilayahDetails, DataHistoris, IspuHistoris
+from ispu_logic import kalkulasi_ispu_final
 
 def fetch_and_save_raw_data():
     """
@@ -82,5 +83,85 @@ def fetch_and_save_raw_data():
                 db.session.rollback()
                 print(f"Gagal menarik data historis untuk {wilayah.nama_wilayah}: {e}")
 
+# ==============================================================================
+# FUNGSI BACKFILL: MENGHITUNG ISPU MUNDUR UNTUK 30 HARI
+# ==============================================================================
+def backfill_ispu_historis_30_hari():
+    print("\n🚀 Memulai Proses Backfilling ISPU Historis (Aturan 24 Jam KEMENLHK)...")
+    
+    with app.app_context():
+        daftar_wilayah = WilayahDetails.query.all()
+        
+        for wilayah in daftar_wilayah:
+            print(f" ⏳ Memproses riwayat kota: {wilayah.nama_wilayah}...")
+            
+            # 1. Ambil seluruh data mentah yang baru saja di-download, urut dari terlama ke terbaru
+            riwayat_mentah = DataHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah)\
+                                               .order_by(DataHistoris.waktu_aktual.asc()).all()
+            
+            if len(riwayat_mentah) < 18:
+                print(f"   [!] Data historis kurang dari 18 jam, lewati.")
+                continue
+
+            ispu_massal = []
+            
+            # Tarik tanggal yang sudah ada di IspuHistoris untuk menghindari duplikat
+            existing_ispu_records = IspuHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah)\
+                                                      .with_entities(IspuHistoris.waktu_kalkulasi).all()
+            existing_ispu_dates = {record[0] for record in existing_ispu_records}
+
+            # 2. Lakukan Sliding Window (Jendela Geser) maju dari jam ke-1 hingga terakhir
+            for i in range(len(riwayat_mentah)):
+                data_terakhir = riwayat_mentah[i]
+                
+                # Cek duplikasi menggunakan Set agar proses backfill berjalan kilat
+                if data_terakhir.waktu_aktual in existing_ispu_dates:
+                    continue
+
+                # Mundur 24 jam ke belakang dari titik 'i'
+                start_idx = max(0, i - 23)
+                jendela_24j = riwayat_mentah[start_idx : i+1]
+                
+                # Kita butuh minimal 18 data agar valid (hukum 75%)
+                if len(jendela_24j) < 18:
+                    continue 
+
+                # 3. Bungkus 24 data ke dalam keranjang List
+                dict_raw = {
+                    'PM25': [r.pm25 for r in jendela_24j],
+                    'PM10': [r.pm10 for r in jendela_24j],
+                    'SO2':  [r.so2 for r in jendela_24j],
+                    'CO':   [r.co for r in jendela_24j],
+                    'NO2':  [r.no2 for r in jendela_24j],
+                    'O3':   [r.ozon for r in jendela_24j]
+                }
+                
+                # 4. Lempar ke kalkulator Dosen Utama
+                hasil_ispu = kalkulasi_ispu_final(dict_raw)
+                
+                if hasil_ispu['skor_ispu_final'] > 0:
+                    catatan = IspuHistoris(
+                        id_wilayah=wilayah.id_wilayah,
+                        id_data=data_terakhir.id_data,
+                        waktu_kalkulasi=data_terakhir.waktu_aktual,
+                        nilai_ispu=hasil_ispu['skor_ispu_final'],
+                        kategori_ispu=hasil_ispu['kategori_ispu'],
+                        parameter_kritis=hasil_ispu['polutan_kritis']
+                    )
+                    ispu_massal.append(catatan)
+            
+            # 5. Simpan massal ke Supabase
+            try:
+                if ispu_massal:
+                    db.session.bulk_save_objects(ispu_massal)
+                    db.session.commit()
+                    print(f"   [+] Berhasil mencetak {len(ispu_massal)} riwayat ISPU ke database.")
+                else:
+                    print(f"   [-] Tidak ada data baru untuk ditambahkan.")
+            except Exception as e:
+                db.session.rollback()
+                print(f"   [!] Gagal menyimpan data: {e}")
+
 if __name__ == "__main__":
     fetch_and_save_raw_data()
+    backfill_ispu_historis_30_hari()
