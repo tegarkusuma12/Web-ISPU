@@ -330,7 +330,17 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
                 if (ispuValueEl) ispuValueEl.innerText = nilaiIspuUtama;
                 if (ispuStatusEl) ispuStatusEl.innerText = kategoriUtama;
                 if (kritisValueEl) kritisValueEl.innerText = maxPollutant.key;
-                if (statusCardEl) statusCardEl.style.backgroundColor = getStatusColor(kategoriUtama);
+                
+                if (statusCardEl) {
+                    statusCardEl.style.backgroundColor = getStatusColor(kategoriUtama);
+                    // ONLY trigger high-contrast dark text on Yellow/Tidak Sehat. Sedang (Cyan) remains gorgeous in pristine white!
+                    const isLightBg = (kategoriUtama.toLowerCase() === 'tidak sehat');
+                    if (isLightBg) {
+                        statusCardEl.classList.add('theme-dark-text');
+                    } else {
+                        statusCardEl.classList.remove('theme-dark-text');
+                    }
+                }
 
                 // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN (DEFENSIVE CHECK)
                 let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
@@ -380,7 +390,7 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
                                      onmouseover="this.style.transform='scale(1.03)'" 
                                      onmouseout="this.style.transform='none'">
                                     <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">${p.label}</div>
-                                    <div class="fw-bold" style="font-size: 0.9rem;">${p.value} <span style="font-size:0.65rem; font-weight: 500; opacity: 0.75;">ISPU</span></div>
+                                    <div class="fw-bold" style="font-size: 0.95rem;">${p.value}</div>
                                 </div>
                             </div>
                         `;
@@ -682,7 +692,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
             labels: labelsWaktu,
             datasets: [
                 {
-                    label: ' Historis (Kemarin - Sekarang)',
+                    label: 'Historis (Kemarin - Sekarang)',
                     data: dataMasaLalu,
                     borderColor: ispuBorderGradient, // Menerapkan gradien dinamis pada garis
                     backgroundColor: ispuFillGradient,   // Menerapkan gradien dinamis pada fill
@@ -692,7 +702,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
                     tension: 0.4 // Membuat kurva melengkung halus
                 },
                 {
-                    label: ' Prediksi (1 - 24 Jam Kedepan)',
+                    label: 'Prediksi (1 - 24 Jam Kedepan)',
                     data: dataMasaDepan,
                     borderColor: ispuBorderGradient, // Gradien dinamis pada garis prediksi
                     borderDash: [6, 6], // Membuat garis putus-putus
