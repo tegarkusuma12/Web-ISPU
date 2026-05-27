@@ -1,16 +1,37 @@
-services:
-  db:
-    image: postgres:15-alpine
-    container_name: ispu_postgres
-    restart: always
-    environment:
-      POSTGRES_USER: ispu_admin
-      POSTGRES_PASSWORD: rahasia_ispu
-      POSTGRES_DB: ispu_jatim_db
-    ports:
-      - "5433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+version: '3.8'
 
-volumes:
-  pgdata:
+services:
+  # CONTAINER 1: Pelayan API (Backend Utama)
+  api_prediksi_ispu:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend_api_ispu
+    ports:
+      - "5000:5000"
+    # Ini adalah "Jendela Tembus Pandang" (Bind Mount). 
+    # Editan di folder backend lokalmu akan langsung berefek ke dalam Docker!
+    volumes:
+      - ./backend:/app
+    # Menyuntikkan file .env rahasiamu ke dalam mesin
+    env_file:
+      - ./backend/.env
+    # Restart otomatis jika server mati karena error
+    restart: unless-stopped
+
+  # CONTAINER 2: Pekerja Keras (Scheduler)
+  scheduler_prediksi_ispu:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scheduler_api_ispu
+    # Menimpa perintah default Dockerfile, khusus container ini menjalankan scheduler
+    command: python scheduler.py
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    # Memastikan API menyala lebih dulu sebelum Scheduler mulai bekerja
+    depends_on:
+      - api_prediksi_ispu
