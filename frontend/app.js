@@ -42,11 +42,27 @@ function initMap() {
 // ==========================================
 async function loadDashboard() {
     try {
-        // KOREKSI: Panggil endpoint baru yang berisi array 24 jam
         const response = await fetch('http://127.0.0.1:5000/api/ispu/rolling_24h');
         const result = await response.json();
         
-        allCitiesData = result.data; // Simpan ke brankas global
+        // Deduplicate timeline arrays to handle potential duplicate join rows from backend API
+        allCitiesData = (result.data || []).map(city => {
+            const seen = new Set();
+            const uniqueTimeline = [];
+            
+            (city.timeline || []).forEach(item => {
+                const key = `${item.hari}_${item.jam}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueTimeline.push(item);
+                }
+            });
+            
+            return {
+                ...city,
+                timeline: uniqueTimeline
+            };
+        });
         
         // Opsional: Tampilkan kapan web terakhir narik data
         let updateText = document.getElementById('update-time-info');
