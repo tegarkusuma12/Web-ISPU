@@ -172,8 +172,9 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     elif 'O3' in nama_bersih or 'OZON' in nama_bersih: polutan = 'O3'
                     else: polutan = nama_bersih 
                     
-                    pred_raw = model_ai.predict(df_input)
-                    pred_list = np.array(pred_raw).flatten().tolist()
+                    pred_raw_log = model_ai.predict(df_input)
+                    pred_raw_asli = np.expm1(pred_raw_log)
+                    pred_list = np.array(pred_raw_asli).flatten().tolist()
                     
                     if len(pred_list) < 24:
                         pred_list.extend([pred_list[-1]] * (24 - len(pred_list)))
