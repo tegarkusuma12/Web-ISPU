@@ -118,6 +118,45 @@ class IspuHistoris(db.Model):
 def cek_status():
     return jsonify({"pesan": "Server Backend ISPU Jatim Aktif!"}), 200
 
+@app.route('/api/ispu/sekarang', methods=['GET'])
+def get_ispu_sekarang():
+    try:
+        # 1. Cari tahu jam mutlak terakhir data riil dimasukkan ke database
+        waktu_terakhir = db.session.query(db.func.max(IspuHistoris.waktu_kalkulasi)).scalar()
+        
+        if not waktu_terakhir:
+            return jsonify({"error": "Data historis belum tersedia."}), 404
+            
+        # 2. Tarik data ke-38 kota HANYA pada jam terakhir tersebut
+        data_riil = db.session.query(IspuHistoris, WilayahDetails)\
+                      .join(WilayahDetails, IspuHistoris.id_wilayah == WilayahDetails.id_wilayah)\
+                      .filter(IspuHistoris.waktu_kalkulasi == waktu_terakhir).all()
+        
+        # 3. Bungkus menjadi format JSON yang rapi
+        hasil_kota = []
+        for ispu, wil in data_riil:
+            hasil_kota.append({
+                "kota": wil.nama_wilayah,
+                "nilai_ispu": ispu.nilai_ispu,
+                "kategori": ispu.kategori_ispu,
+                "parameter_kritis": ispu.parameter_kritis
+            })
+            
+        # Pastikan format waktu aman untuk dikirim lewat JSON (menjadi String)
+        waktu_str = pytz.UTC.localize(waktu_terakhir).astimezone(TZ_WIB).strftime("%H:%M")
+        
+        return jsonify({
+            "status": "REAL_DATA",
+            "waktu_pembaruan": waktu_str, 
+            "total_kota": len(hasil_kota),
+            "data": hasil_kota
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        print(f"DEBUG: Error pada /api/ispu/sekarang: {str(e)}")
+        return jsonify({"error": "Gagal mengambil data ISPU saat ini."}), 500
+
 # ------------------------------------------------------------------------------
 # SKENARIO B: ON-THE-FLY PREDIKSI 24 JAM KE DEPAN (PENJAHITAN WAKTU)
 # ------------------------------------------------------------------------------
@@ -160,7 +199,14 @@ def get_ispu_rolling_24h():
         # 3. Proses Penjahitan Waktu (Sliding Window) per Kota
         for kota in daftar_kota:
             h_list = hist_dict[kota]
-            p_list = pred_dict[kota]
+            p_list_raw = pred_dict[kota]
+            
+            # --- 1. SABUK PENGAMAN (BASMI DUPLIKAT PREDIKSI) ---
+            p_list_unik = {}
+            for p in p_list_raw:
+                p_list_unik[p.target_waktu] = p 
+            p_list = sorted(list(p_list_unik.values()), key=lambda x: x.target_waktu)
+            # ----------------------------------------------------
             
             # Ekstrak menjadi array/list
             h_pm25 = [h.pm25 for h in h_list]; p_pm25 = [p.pred_pm25 for p in p_list]
@@ -170,6 +216,46 @@ def get_ispu_rolling_24h():
             h_no2  = [h.no2 for h in h_list];  p_no2  = [p.pred_no2 for p in p_list]
             h_o3   = [h.ozon for h in h_list]; p_o3   = [p.pred_ozon for p in p_list]
             
+            # --- 2. SUNTIKAN DATA RIIL (0h / JAM INI) SEBAGAI AWALAN ---
+            if h_list:
+                riil_terakhir = h_list[-1]
+                waktu_0h_utc = pytz.UTC.localize(riil_terakhir.waktu_aktual)
+                waktu_0h_wib = waktu_0h_utc.astimezone(TZ_WIB)
+                
+                dict_polutan_0h = {
+                    'PM25': h_pm25, 'PM10': h_pm10, 
+                    'CO': h_co, 'NO2': h_no2, 
+                    'O3': h_o3, 'SO2': h_so2
+                }
+                
+                ispu_0h = kalkulasi_ispu_final(dict_polutan_0h)
+                
+                grouped_data[kota].append({
+                    "indeks_waktu": 0,
+                    "jam": waktu_0h_wib.strftime("%H:00"),
+                    "hari": "Hari Ini",
+                    "nilai_ispu": ispu_0h['skor_ispu_final'],
+                    "kategori": ispu_0h['kategori_ispu'],
+                    "parameter_kritis": ispu_0h['polutan_kritis'],
+
+                    "ispu_pm25": ispu_0h.get('skor_pm25', 0),
+                    "ispu_pm10": ispu_0h.get('skor_pm10', 0),
+                    "ispu_so2": ispu_0h.get('skor_so2', 0),
+                    "ispu_co": ispu_0h.get('skor_co', 0),
+                    "ispu_no2": ispu_0h.get('skor_no2', 0),
+                    "ispu_o3": ispu_0h.get('skor_o3', 0),
+
+                    # Data raw tooltip menggunakan nilai riil dari sensor
+                    "pm25": riil_terakhir.pm25,
+                    "pm10": riil_terakhir.pm10, 
+                    "co": riil_terakhir.co,
+                    "no2": riil_terakhir.no2, 
+                    "o3": riil_terakhir.ozon,
+                    "so2": riil_terakhir.so2
+                })
+            # -----------------------------------------------------------
+
+            # --- 3. LOOPING PREDIKSI (+1 JAM s/d +24 JAM) ---
             for i, pred in enumerate(p_list):
                 waktu_target_utc = pytz.UTC.localize(pred.target_waktu)
                 waktu_target_wib = waktu_target_utc.astimezone(TZ_WIB)
@@ -180,7 +266,6 @@ def get_ispu_rolling_24h():
                 # Menjahit Array: (Sisa Masa Lalu) + (Tebakan Masa Depan sampai jam ke-i)
                 potong_historis = 23 - i 
                 
-                # Fungsi potong_historis > 0 mencegah array kosong jika jam ke-24 (dimana riwayat tidak dipakai lagi)
                 gabung_pm25 = (h_pm25[-potong_historis:] if potong_historis > 0 else []) + p_pm25[:i+1]
                 gabung_pm10 = (h_pm10[-potong_historis:] if potong_historis > 0 else []) + p_pm10[:i+1]
                 gabung_so2  = (h_so2[-potong_historis:] if potong_historis > 0 else []) + p_so2[:i+1]
@@ -188,7 +273,6 @@ def get_ispu_rolling_24h():
                 gabung_no2  = (h_no2[-potong_historis:] if potong_historis > 0 else []) + p_no2[:i+1]
                 gabung_o3   = (h_o3[-potong_historis:] if potong_historis > 0 else []) + p_o3[:i+1]
 
-                # Keranjang berisi 24 angka siap diserahkan ke Dosen Utama (ispu_logic)
                 dict_polutan_24h = {
                     'PM25': gabung_pm25, 'PM10': gabung_pm10, 
                     'CO': gabung_co, 'NO2': gabung_no2, 
@@ -212,7 +296,7 @@ def get_ispu_rolling_24h():
                     "ispu_no2": ispu_calc.get('skor_no2', 0),
                     "ispu_o3": ispu_calc.get('skor_o3', 0),
 
-                    # Biarkan frontend menerima angka raw juga untuk keperluan tooltip
+                    # Data raw tooltip menggunakan tebakan AI
                     "pm25": pred.pred_pm25,
                     "pm10": pred.pred_pm10, 
                     "co": pred.pred_co,
