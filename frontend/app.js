@@ -11,6 +11,8 @@ let map = null;
 let currentHourIndex = 0; // 0 = Sekarang, 1 = +1 Jam, dst hingga 24
 let geoJsonLayer = null; // Penampung layer warna peta agar bisa dihapus & digambar ulang
 let jatimGeoJSON = null; // Penampung file jatim.json agar tidak perlu didownload berulang kali
+let currentIspuData = []; // Menampung data aktual instant-load dari GET /api/ispu/sekarang (Phase 1)
+let isTimelineReady = false; // Flag penanda apakah data timeline prediksi asinkron sudah siap (Phase 3)
 
 // ==========================================
 // FUNGSI UTILITAS UI
@@ -38,43 +40,53 @@ function initMap() {
 }
 
 // ==========================================
-// TARIK SEMUA DATA (DASHBOARD ROLLING 24H)
+// TARIK SEMUA DATA (PHASE-BASED DATA SOURCE HANDOFF)
 // ==========================================
 async function loadDashboard() {
     try {
-        const response = await fetch('http://127.0.0.1:5000/api/ispu/rolling_24h');
-        const result = await response.json();
+        // PHASE 1: Initial Fast Load (GET /api/ispu/sekarang)
+        const sekarangResponse = await fetch('http://127.0.0.1:5000/api/ispu/sekarang');
+        const sekarangResult = await sekarangResponse.json();
         
-        // Deduplicate timeline arrays to handle potential duplicate join rows from backend API
-        allCitiesData = (result.data || []).map(city => {
-            const seen = new Set();
-            const uniqueTimeline = [];
-            
-            (city.timeline || []).forEach(item => {
-                const key = `${item.hari}_${item.jam}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueTimeline.push(item);
-                }
-            });
-            
-            return {
-                ...city,
-                timeline: uniqueTimeline
-            };
-        });
+        currentIspuData = sekarangResult.data || [];
         
-        // Opsional: Tampilkan kapan web terakhir narik data
+        // Show sync time instantly
         let updateText = document.getElementById('update-time-info');
-        if(updateText) updateText.innerText = "Terakhir diperbarui: " + result.waktu_buka_web;
-
-        populateSearch(allCitiesData);
+        if(updateText) {
+            updateText.innerText = "Terakhir diperbarui: " + (sekarangResult.waktu_pembaruan || "Baru saja");
+        }
         
-        // Panggil fungsi penyegaran UI serentak
+        // Render initial map, leaderboard, and selected city (locked/disabled state)
         refreshUI();
         
+        // PHASE 2: Background Asynchronous Fetch (GET /api/ispu/rolling_24h)
+        fetch('http://127.0.0.1:5000/api/ispu/rolling_24h')
+            .then(res => res.json())
+            .then(rollingResult => {
+                // PHASE 3: Ready State (Handoff)
+                // Backend is 100% clean, no deduplication mapping is performed!
+                allCitiesData = rollingResult.data || [];
+                isTimelineReady = true;
+                
+                // Unlock the slider input in the UI
+                const timeSlider = document.getElementById('timeSlider');
+                if (timeSlider) {
+                    timeSlider.disabled = false;
+                }
+                
+                // Populate search datalist and search listener
+                populateSearch(allCitiesData);
+                
+                // Refresh slider label & UI to perform complete data source handoff
+                updateSliderLabel();
+                pilihKota(kotaAktif, false); // Reload detail view using the rich timeline[0] actual values
+            })
+            .catch(err => {
+                console.error("Gagal memuat timeline prediksi di latar belakang:", err);
+            });
+            
     } catch (error) {
-        console.error("Gagal memuat data dashboard:", error);
+        console.error("Gagal memuat data awal dashboard:", error);
     }
 }
 
@@ -100,7 +112,12 @@ function handleSliderChange(val) {
 
 function updateSliderLabel() {
     const labelEl = document.getElementById('slider-label');
-    if(!labelEl || allCitiesData.length === 0) return;
+    if(!labelEl) return;
+    
+    if (allCitiesData.length === 0) {
+        labelEl.innerHTML = `Mengakses data aktual... <span class="badge bg-success ms-2">Aktual</span>`;
+        return;
+    }
     
     // Ambil sampel waktu dari kota pertama untuk label
     const sampelWaktu = allCitiesData[0].timeline[currentHourIndex];
@@ -144,15 +161,26 @@ function populateSearch(data) {
 // LEADERBOARD KOTA (DINAMIS BERDASARKAN JAM)
 // ==========================================
 function updateLeaderboard() {
-    // Ekstrak data spesifik HANYA untuk jam yang sedang dipilih di slider
-    const currentData = allCitiesData.map(d => {
-        const timeData = d.timeline[currentHourIndex];
-        return {
+    let currentData = [];
+
+    // Handoff logic: if background timeline predictions are NOT ready yet, use GET /api/ispu/sekarang data
+    if (!isTimelineReady && currentIspuData.length > 0) {
+        currentData = currentIspuData.map(d => ({
             kota: d.kota,
-            nilai_ispu: timeData ? timeData.nilai_ispu : 0,
-            kategori: timeData ? timeData.kategori : "Menunggu Data"
-        };
-    });
+            nilai_ispu: d.nilai_ispu || 0,
+            kategori: d.kategori || "Baik"
+        }));
+    } else if (allCitiesData.length > 0) {
+        // Once timeline predictions are fully ready (Phase 3), strictly read from rolling_24h timelines (0h - 24h)
+        currentData = allCitiesData.map(d => {
+            const timeData = d.timeline[currentHourIndex];
+            return {
+                kota: d.kota,
+                nilai_ispu: timeData ? timeData.nilai_ispu : 0,
+                kategori: timeData ? timeData.kategori : "Menunggu Data"
+            };
+        });
+    }
     // 1. FILTER: Diskualifikasi kota yang datanya tidak valid (nilai 0)
     const validData = currentData.filter(d => d.nilai_ispu > 0);
 
@@ -254,11 +282,23 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     const ispuStatusEl = document.getElementById('ispuStatus');
     const kritisValueEl = document.getElementById('kritisValue');
     const statusCardEl = document.getElementById('statusCard');
+    const sourceBadgeEl = document.getElementById('ispu-source-badge'); // New dynamic badge!
 
     if (selectedCityTitleEl) selectedCityTitleEl.innerText = `Detail Wilayah: ${kota}`;
     if (ispuValueEl) ispuValueEl.innerText = "...";
     if (ispuStatusEl) ispuStatusEl.innerText = "...";
     if (kritisValueEl) kritisValueEl.innerText = "...";
+    
+    // Set dynamic Actual vs AI Prediction source badge based on current hour index
+    if (sourceBadgeEl) {
+        if (currentHourIndex === 0) {
+            sourceBadgeEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Data Aktual (Riil)`;
+            sourceBadgeEl.className = "status-badge-inline bg-success border-0 shadow-sm text-white";
+        } else {
+            sourceBadgeEl.innerHTML = `<i class="bi bi-cpu-fill me-1"></i> Data Prediksi AI`;
+            sourceBadgeEl.className = "status-badge-inline bg-primary border-0 shadow-sm text-white";
+        }
+    }
     
     // Reset status pemuatan grid polutan & rekomendasi (DEFENSIVE CHECK & HIJACKER)
     let gridEl = document.getElementById('pollutant-grid');
@@ -293,135 +333,149 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     
     setTimeout(() => {
         let dataKotaIni = allCitiesData.find(d => d.kota === kota);
+        let timeData = null;
+        let kotaSekarang = null;
         
-        if(dataKotaIni) {
-            let timeData = dataKotaIni.timeline[currentHourIndex]; 
-            
-            if(timeData) {
-                // Read predicted ISPU values directly from backend API fields, with smart fallback to respect older data or null values
-                const getIspuVal = (field, fallbackScale) => {
-                    const apiVal = timeData[field];
-                    if (apiVal !== null && apiVal !== undefined) {
-                        return Math.round(Number(apiVal));
-                    }
-                    // Clean mathematical fallback if backend field is null
-                    const baseIspu = timeData.nilai_ispu || 0;
-                    return Math.round(baseIspu * fallbackScale);
+        if (dataKotaIni && dataKotaIni.timeline) {
+            timeData = dataKotaIni.timeline[currentHourIndex];
+        }
+        
+        // Fast-load fallback: if predictions are not ready yet, read from currentIspuData
+        if (!timeData && currentHourIndex === 0 && currentIspuData.length > 0) {
+            kotaSekarang = currentIspuData.find(d => d.kota === kota);
+            if (kotaSekarang) {
+                timeData = {
+                    nilai_ispu: kotaSekarang.nilai_ispu,
+                    parameter_kritis: kotaSekarang.parameter_kritis,
+                    kategori: kotaSekarang.kategori
                 };
-
-                const pm25Val = getIspuVal('ispu_pm25', 0.88);
-                const pm10Val = getIspuVal('ispu_pm10', 0.72);
-                const so2Val = getIspuVal('ispu_so2', 0.32);
-                const coVal = getIspuVal('ispu_co', 0.28);
-                const o3Val = getIspuVal('ispu_o3', 0.42);
-                const no2Val = getIspuVal('ispu_no2', 0.22);
-
-                const pollutantsList = [
-                    { key: 'PM2.5', label: 'PM<sub>2.5</sub>', value: pm25Val },
-                    { key: 'PM10', label: 'PM<sub>10</sub>', value: pm10Val },
-                    { key: 'SO2', label: 'SO<sub>2</sub>', value: so2Val },
-                    { key: 'CO', label: 'CO', value: coVal },
-                    { key: 'O3', label: 'O<sub>3</sub>', value: o3Val },
-                    { key: 'NO2', label: 'NO<sub>2</sub>', value: no2Val }
-                ];
-
-                // Dynamically find the maximum predicted ISPU value to determine Parameter Kritis
-                let maxPollutant = pollutantsList[0];
-                pollutantsList.forEach(p => {
-                    if (p.value > maxPollutant.value) {
-                        maxPollutant = p;
-                    }
-                });
-
-                // Overall ISPU value is the maximum of the 6 predicted pollutant sub-indices
-                const nilaiIspuUtama = maxPollutant.value > 0 ? maxPollutant.value : (timeData.nilai_ispu || 0);
-                
-                // Determine health category dynamically based on the highest ISPU score
-                let kategoriUtama = "Baik";
-                if (nilaiIspuUtama > 50) kategoriUtama = "Sedang";
-                if (nilaiIspuUtama > 100) kategoriUtama = "Tidak Sehat";
-                if (nilaiIspuUtama > 200) kategoriUtama = "Sangat Tidak Sehat";
-                if (nilaiIspuUtama > 300) kategoriUtama = "Berbahaya";
-
-                if (ispuValueEl) ispuValueEl.innerText = nilaiIspuUtama;
-                if (ispuStatusEl) ispuStatusEl.innerText = kategoriUtama;
-                if (kritisValueEl) kritisValueEl.innerText = maxPollutant.key;
-                
-                if (statusCardEl) {
-                    statusCardEl.style.backgroundColor = getStatusColor(kategoriUtama);
-                    // ONLY trigger high-contrast dark text on Yellow/Tidak Sehat. Sedang (Cyan) remains gorgeous in pristine white!
-                    const isLightBg = (kategoriUtama.toLowerCase() === 'tidak sehat');
-                    if (isLightBg) {
-                        statusCardEl.classList.add('theme-dark-text');
-                    } else {
-                        statusCardEl.classList.remove('theme-dark-text');
-                    }
-                }
-
-                // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN (DEFENSIVE CHECK)
-                let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
-                switch(kategoriUtama.toLowerCase()) {
-                    case 'baik':
-                        rekomendasiTeks = "Sangat baik untuk aktivitas outdoor & olahraga!";
-                        break;
-                    case 'sedang':
-                        rekomendasiTeks = "Kualitas udara sedang. Kelompok sensitif sebaiknya mengurangi aktivitas luar ruangan.";
-                        break;
-                    case 'tidak sehat':
-                        rekomendasiTeks = "Gunakan masker medis jika harus beraktivitas di luar ruangan.";
-                        break;
-                    case 'sangat tidak sehat':
-                        rekomendasiTeks = "Hindari aktivitas fisik di luar. Kelompok rentan tetap di dalam rumah.";
-                        break;
-                    case 'berbahaya':
-                        rekomendasiTeks = "DILARANG beraktivitas di luar ruangan! Jaga seluruh jendela tetap tertutup.";
-                        break;
-                }
-                if (maskerEl) maskerEl.innerText = rekomendasiTeks;
-
-                // Re-verify gridEl inside the closure to ensure hijacking was successful
-                let activeGridEl = gridEl || document.getElementById('pollutant-grid');
-                if (!activeGridEl && pm25El) {
-                    const rowEl = pm25El.closest('.row');
-                    if (rowEl) {
-                        rowEl.id = 'pollutant-grid';
-                        activeGridEl = rowEl;
-                    }
-                }
-
-                // 2. DYNAMIC 6-POLLUTANT ELIMINATION SYSTEM (Exclude Critical, Show Remaining 5 below)
-                if (activeGridEl) {
-                    // Filter out the active maximum pollutant from the sub-cards
-                    const subPollutants = pollutantsList.filter(p => p.key !== maxPollutant.key);
-                    
-                    let gridHTML = "";
-                    subPollutants.forEach((p, idx) => {
-                        // Clean premium column structure: 4 items in col-6 (2 rows), 5th item spans full col-12
-                        const colClass = idx === 4 ? 'col-12' : 'col-6';
-                        
-                        gridHTML += `
-                            <div class="${colClass}">
-                                <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" 
-                                     style="border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s;" 
-                                     onmouseover="this.style.transform='scale(1.03)'" 
-                                     onmouseout="this.style.transform='none'">
-                                    <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">${p.label}</div>
-                                    <div class="fw-bold" style="font-size: 0.95rem;">${p.value}</div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    activeGridEl.innerHTML = gridHTML;
-                } else {
-                    // Backward compatibility fallback for legacy HTML files
-                    if (pm25El) pm25El.innerHTML = `${Math.round(nilaiIspuUtama * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
-                    if (pm10El) pm10El.innerHTML = `${Math.round(nilaiIspuUtama * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
-                    if (so2El) so2El.innerHTML = `${Math.round(nilaiIspuUtama * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
-                    if (coEl) coEl.innerHTML = `${(nilaiIspuUtama * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
-                }
             }
         }
-    }, 150); 
+        
+        if(timeData) {
+            // Read predicted ISPU values directly from backend API fields, with smart fallback to respect older data or null values
+            const getIspuVal = (field, fallbackScale) => {
+                const apiVal = timeData[field];
+                if (apiVal !== null && apiVal !== undefined) {
+                    return Math.round(Number(apiVal));
+                }
+                // Clean mathematical fallback if backend field is null (or if we are in fast-load fallback)
+                const baseIspu = timeData.nilai_ispu || 0;
+                return Math.round(baseIspu * fallbackScale);
+            };
+
+            const pm25Val = getIspuVal('ispu_pm25', 0.88);
+            const pm10Val = getIspuVal('ispu_pm10', 0.72);
+            const so2Val = getIspuVal('ispu_so2', 0.32);
+            const coVal = getIspuVal('ispu_co', 0.28);
+            const o3Val = getIspuVal('ispu_o3', 0.42);
+            const no2Val = getIspuVal('ispu_no2', 0.22);
+
+            const pollutantsList = [
+                { key: 'PM2.5', label: 'PM<sub>2.5</sub>', value: pm25Val },
+                { key: 'PM10', label: 'PM<sub>10</sub>', value: pm10Val },
+                { key: 'SO2', label: 'SO<sub>2</sub>', value: so2Val },
+                { key: 'CO', label: 'CO', value: coVal },
+                { key: 'O3', label: 'O<sub>3</sub>', value: o3Val },
+                { key: 'NO2', label: 'NO<sub>2</sub>', value: no2Val }
+            ];
+
+            // Dynamically find the maximum predicted ISPU value to determine Parameter Kritis
+            let maxPollutant = pollutantsList[0];
+            pollutantsList.forEach(p => {
+                if (p.value > maxPollutant.value) {
+                    maxPollutant = p;
+                }
+            });
+
+            // Overall ISPU value is the maximum of the 6 predicted pollutant sub-indices
+            const nilaiIspuUtama = maxPollutant.value > 0 ? maxPollutant.value : (timeData.nilai_ispu || 0);
+            
+            // Determine health category dynamically based on the highest ISPU score
+            let kategoriUtama = "Baik";
+            if (nilaiIspuUtama > 50) kategoriUtama = "Sedang";
+            if (nilaiIspuUtama > 100) kategoriUtama = "Tidak Sehat";
+            if (nilaiIspuUtama > 200) kategoriUtama = "Sangat Tidak Sehat";
+            if (nilaiIspuUtama > 300) kategoriUtama = "Berbahaya";
+
+            if (ispuValueEl) ispuValueEl.innerText = nilaiIspuUtama;
+            if (ispuStatusEl) ispuStatusEl.innerText = kategoriUtama;
+            if (kritisValueEl) kritisValueEl.innerText = maxPollutant.key;
+            
+            if (statusCardEl) {
+                statusCardEl.style.backgroundColor = getStatusColor(kategoriUtama);
+                // ONLY trigger high-contrast dark text on Yellow/Tidak Sehat. Sedang (Cyan) remains gorgeous in pristine white!
+                const isLightBg = (kategoriUtama.toLowerCase() === 'tidak sehat');
+                if (isLightBg) {
+                    statusCardEl.classList.add('theme-dark-text');
+                } else {
+                    statusCardEl.classList.remove('theme-dark-text');
+                }
+            }
+
+            // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN (DEFENSIVE CHECK)
+            let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
+            switch(kategoriUtama.toLowerCase()) {
+                case 'baik':
+                    rekomendasiTeks = "Sangat baik untuk aktivitas outdoor & olahraga!";
+                    break;
+                case 'sedang':
+                    rekomendasiTeks = "Kualitas udara sedang. Kelompok sensitif sebaiknya mengurangi aktivitas luar ruangan.";
+                    break;
+                case 'tidak sehat':
+                    rekomendasiTeks = "Gunakan masker medis jika harus beraktivitas di luar ruangan.";
+                    break;
+                case 'sangat tidak sehat':
+                    rekomendasiTeks = "Hindari aktivitas fisik di luar. Kelompok rentan tetap di dalam rumah.";
+                    break;
+                case 'berbahaya':
+                    rekomendasiTeks = "DILARANG beraktivitas di luar ruangan! Jaga seluruh jendela tetap tertutup.";
+                    break;
+            }
+            if (maskerEl) maskerEl.innerText = rekomendasiTeks;
+
+            // Re-verify gridEl inside the closure to ensure hijacking was successful
+            let activeGridEl = gridEl || document.getElementById('pollutant-grid');
+            if (!activeGridEl && pm25El) {
+                const rowEl = pm25El.closest('.row');
+                if (rowEl) {
+                    rowEl.id = 'pollutant-grid';
+                    activeGridEl = rowEl;
+                }
+            }
+
+            // 2. DYNAMIC 6-POLLUTANT ELIMINATION SYSTEM (Exclude Critical, Show Remaining 5 below)
+            if (activeGridEl) {
+                // Filter out the active maximum pollutant from the sub-cards
+                const subPollutants = pollutantsList.filter(p => p.key !== maxPollutant.key);
+                
+                let gridHTML = "";
+                subPollutants.forEach((p, idx) => {
+                    // Clean premium column structure: 4 items in col-6 (2 rows), 5th item spans full col-12
+                    const colClass = idx === 4 ? 'col-12' : 'col-6';
+                    
+                    gridHTML += `
+                        <div class="${colClass}">
+                            <div class="bg-white bg-opacity-10 rounded-3 p-2 text-center" 
+                                 style="border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s;" 
+                                 onmouseover="this.style.transform='scale(1.03)'" 
+                                 onmouseout="this.style.transform='none'">
+                                <div style="font-size: 0.65rem; text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700;">${p.label}</div>
+                                <div class="fw-bold" style="font-size: 0.95rem;">${p.value}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                activeGridEl.innerHTML = gridHTML;
+            } else {
+                // Backward compatibility fallback for legacy HTML files
+                if (pm25El) pm25El.innerHTML = `${Math.round(nilaiIspuUtama * 0.9)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                if (pm10El) pm10El.innerHTML = `${Math.round(nilaiIspuUtama * 0.75)} <span style="font-size:0.65rem;">µg/m³</span>`;
+                if (so2El) so2El.innerHTML = `${Math.round(nilaiIspuUtama * 0.35)} <span style="font-size:0.65rem;">ppb</span>`;
+                if (coEl) coEl.innerHTML = `${(nilaiIspuUtama * 0.04).toFixed(1)} <span style="font-size:0.65rem;">ppm</span>`;
+            }
+        }
+    }, 150);
 
     if(scrollAndFetchGraph) {
         fetchIspuData(kota, filterHariAktif);
@@ -463,11 +517,27 @@ async function renderPetaWarna() {
         geoJsonLayer = L.geoJSON(jatimGeoJSON, {
             style: function (feature) {
                 let namaPetaBersih = sanitizeName(feature.properties.kabkot || "");
-                let kotaDitemukan = allCitiesData.find(d => sanitizeName(d.kota) === namaPetaBersih);
-
+                
                 let warnaArea = '#cccccc'; // Default Abu-abu
-                if (kotaDitemukan && kotaDitemukan.timeline[currentHourIndex]) {
-                    warnaArea = getStatusColor(kotaDitemukan.timeline[currentHourIndex].kategori);
+                let ispuVal = 0;
+                let kategori = "";
+
+                if (!isTimelineReady && currentIspuData.length > 0) {
+                    let kotaDitemukan = currentIspuData.find(d => sanitizeName(d.kota) === namaPetaBersih);
+                    if (kotaDitemukan) {
+                        ispuVal = kotaDitemukan.nilai_ispu;
+                        kategori = kotaDitemukan.kategori;
+                    }
+                } else {
+                    let kotaDitemukan = allCitiesData.find(d => sanitizeName(d.kota) === namaPetaBersih);
+                    if (kotaDitemukan && kotaDitemukan.timeline[currentHourIndex]) {
+                        ispuVal = kotaDitemukan.timeline[currentHourIndex].nilai_ispu;
+                        kategori = kotaDitemukan.timeline[currentHourIndex].kategori;
+                    }
+                }
+
+                if (ispuVal > 0) {
+                    warnaArea = getStatusColor(kategori);
                 }
 
                 return {
@@ -480,23 +550,41 @@ async function renderPetaWarna() {
             },
             onEachFeature: function (feature, layer) {
                 let namaPetaBersih = sanitizeName(feature.properties.kabkot || "");
-                let kotaDitemukan = allCitiesData.find(d => sanitizeName(d.kota) === namaPetaBersih);
+                let kotaDitemukan = null;
+                let ispuVal = 0;
+                let kategori = "";
+                let namaKota = "";
+
+                if (!isTimelineReady && currentIspuData.length > 0) {
+                    kotaDitemukan = currentIspuData.find(d => sanitizeName(d.kota) === namaPetaBersih);
+                    if (kotaDitemukan) {
+                        ispuVal = kotaDitemukan.nilai_ispu;
+                        kategori = kotaDitemukan.kategori;
+                        namaKota = kotaDitemukan.kota;
+                    }
+                } else {
+                    let d = allCitiesData.find(d => sanitizeName(d.kota) === namaPetaBersih);
+                    if (d && d.timeline[currentHourIndex]) {
+                        kotaDitemukan = d.timeline[currentHourIndex];
+                        ispuVal = kotaDitemukan.nilai_ispu;
+                        kategori = kotaDitemukan.kategori;
+                        namaKota = d.kota;
+                    }
+                }
                 
-                if (kotaDitemukan && kotaDitemukan.timeline[currentHourIndex]) {
-                    let timeData = kotaDitemukan.timeline[currentHourIndex];
-                    
+                if (kotaDitemukan) {
                     // Kustomisasi teks popup bergaya Glassmorphism
                     const popupContent = `
                         <div style="padding: 2px;">
-                            <b>${kotaDitemukan.kota}</b><br>
+                            <b>${namaKota}</b><br>
                             <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
                                 <span style="font-weight: 500; opacity: 0.85;">Indeks ISPU:</span>
-                                <span style="background: ${getStatusColor(timeData.kategori)}; color: #fff; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">
-                                    ${timeData.nilai_ispu}
+                                <span style="background: ${getStatusColor(kategori)}; color: #fff; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">
+                                    ${ispuVal}
                                 </span>
                             </div>
                             <div style="margin-top: 4px; font-size: 0.75rem; opacity: 0.7;">
-                                Status: <span style="font-weight: 600; text-transform: uppercase;">${timeData.kategori}</span>
+                                Status: <span style="font-weight: 600; text-transform: uppercase;">${kategori}</span>
                             </div>
                         </div>
                     `;
@@ -518,7 +606,7 @@ async function renderPetaWarna() {
                         layer.closePopup();
                     });
 
-                    layer.on('click', () => pilihKota(kotaDitemukan.kota, true));
+                    layer.on('click', () => pilihKota(namaKota, true));
                 }
             }
         }).addTo(map);
