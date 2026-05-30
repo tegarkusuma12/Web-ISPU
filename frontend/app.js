@@ -56,6 +56,24 @@ async function loadModelPerformance() {
         if (maeEl && result.mae_score) {
             maeEl.innerText = result.mae_score + " Indeks ISPU";
         }
+
+        // Map rincian error masing-masing polutan ke popup melayang
+        if (result.pollutants_mae) {
+            const p = result.pollutants_mae;
+            const pm25El = document.getElementById('mae-val-pm25');
+            const pm10El = document.getElementById('mae-val-pm10');
+            const ozonEl = document.getElementById('mae-val-ozon');
+            const coEl = document.getElementById('mae-val-co');
+            const so2El = document.getElementById('mae-val-so2');
+            const no2El = document.getElementById('mae-val-no2');
+
+            if (pm25El) pm25El.innerText = p["PM2.5"] ? p["PM2.5"] + " µg/m³" : "1.56 µg/m³";
+            if (pm10El) pm10El.innerText = p["PM10"] ? p["PM10"] + " µg/m³" : "2.58 µg/m³";
+            if (ozonEl) ozonEl.innerText = p["O3"] ? p["O3"] + " ppb" : "3.63 ppb";
+            if (coEl) coEl.innerText = p["CO"] ? p["CO"] + " ppb" : "21.74 ppb";
+            if (so2El) so2El.innerText = p["SO2"] ? p["SO2"] + " ppb" : "0.06 ppb";
+            if (no2El) no2El.innerText = p["NO2"] ? p["NO2"] + " ppb" : "0.21 ppb";
+        }
         
         console.log(`[ML Performance Sync] Status: ${result.status}, R2: ${result.r2_score}%, MAE: ${result.mae_score}`);
     } catch (error) {

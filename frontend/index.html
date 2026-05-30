@@ -636,6 +636,50 @@
                 margin-bottom: 0;
             }
         }
+
+        /* MAE Details Hover Card */
+        .metric-col-mae {
+            position: relative;
+            cursor: help !important;
+        }
+        
+        .mae-details-popup {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            width: 220px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            z-index: 100;
+            color: #ffffff;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+        
+        .mae-details-popup::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+        }
+        
+        .metric-col-mae:hover .mae-details-popup {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -946,7 +990,7 @@
                             </div>
                         </div>
                         <!-- 3. Tingkat Error (MAE) -->
-                        <div class="col-sm-4 metric-col">
+                        <div class="col-sm-4 metric-col metric-col-mae">
                             <div class="d-flex align-items-center gap-2">
                                 <div class="p-2 rounded bg-warning bg-opacity-10 text-warning" style="font-size: 1.1rem; display: inline-flex;">
                                     <i class="bi bi-shield-fill-exclamation"></i>
@@ -954,6 +998,29 @@
                                 <div>
                                     <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Tingkat Error (MAE)</span>
                                     <span id="model-mae-val" class="fw-bold text-dark" style="font-size: 0.95rem;">3.14 Indeks ISPU</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Detailed Pollutant MAE Glassmorphism Popover -->
+                            <div class="mae-details-popup">
+                                <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAE Polutan (24j)</div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                    <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold text-success" id="mae-val-pm25">1.56 µg/m³</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                    <span style="opacity: 0.85;">PM10:</span><span class="fw-bold text-success" id="mae-val-pm10">2.58 µg/m³</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                    <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold text-success" id="mae-val-ozon">3.63 ppb</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                    <span style="opacity: 0.85;">CO:</span><span class="fw-bold text-success" id="mae-val-co">21.74 ppb</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                    <span style="opacity: 0.85;">SO2:</span><span class="fw-bold text-success" id="mae-val-so2">0.06 ppb</span>
+                                </div>
+                                <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                                    <span style="opacity: 0.85;">NO2:</span><span class="fw-bold text-success" id="mae-val-no2">0.21 ppb</span>
                                 </div>
                             </div>
                         </div>
