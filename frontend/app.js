@@ -39,6 +39,40 @@ function initMap() {
     }).addTo(map);
 }
 
+// Helper untuk menentukan warna indikator error (Hijau/Kuning/Merah) berdasarkan toleransi ilmiah
+function getErrorColorClass(pollutant, value) {
+    if (value === null || value === undefined) return 'text-success';
+    const num = parseFloat(value);
+    switch (pollutant) {
+        case 'PM2.5':
+            if (num < 3.0) return 'text-success';
+            if (num < 6.0) return 'text-warning';
+            return 'text-danger';
+        case 'PM10':
+            if (num < 5.0) return 'text-success';
+            if (num < 10.0) return 'text-warning';
+            return 'text-danger';
+        case 'O3':
+            if (num < 5.0) return 'text-success';
+            if (num < 10.0) return 'text-warning';
+            return 'text-danger';
+        case 'CO':
+            if (num < 30.0) return 'text-success';
+            if (num < 80.0) return 'text-warning';
+            return 'text-danger';
+        case 'SO2':
+            if (num < 2.0) return 'text-success';
+            if (num < 5.0) return 'text-warning';
+            return 'text-danger';
+        case 'NO2':
+            if (num < 2.0) return 'text-success';
+            if (num < 5.0) return 'text-warning';
+            return 'text-danger';
+        default:
+            return 'text-success';
+    }
+}
+
 // ==========================================
 // TARIK AKURASI MODEL SECARA REAL-TIME DARI BACKEND
 // ==========================================
@@ -54,10 +88,10 @@ async function loadModelPerformance() {
             r2El.innerText = result.r2_score + "%";
         }
         if (maeEl && result.mae_score) {
-            maeEl.innerText = result.mae_score + " Indeks ISPU";
+            maeEl.innerText = result.mae_score;
         }
 
-        // Map rincian error masing-masing polutan ke popup melayang
+        // Map rincian error masing-masing polutan ke popup melayang secara dinamis
         if (result.pollutants_mae) {
             const p = result.pollutants_mae;
             const pm25El = document.getElementById('mae-val-pm25');
@@ -67,12 +101,36 @@ async function loadModelPerformance() {
             const so2El = document.getElementById('mae-val-so2');
             const no2El = document.getElementById('mae-val-no2');
 
-            if (pm25El) pm25El.innerText = p["PM2.5"] ? p["PM2.5"] + " µg/m³" : "1.56 µg/m³";
-            if (pm10El) pm10El.innerText = p["PM10"] ? p["PM10"] + " µg/m³" : "2.58 µg/m³";
-            if (ozonEl) ozonEl.innerText = p["O3"] ? p["O3"] + " ppb" : "3.63 ppb";
-            if (coEl) coEl.innerText = p["CO"] ? p["CO"] + " ppb" : "21.74 ppb";
-            if (so2El) so2El.innerText = p["SO2"] ? p["SO2"] + " ppb" : "0.06 ppb";
-            if (no2El) no2El.innerText = p["NO2"] ? p["NO2"] + " ppb" : "0.21 ppb";
+            if (pm25El) {
+                const val = p["PM2.5"] !== undefined ? p["PM2.5"] : 1.56;
+                pm25El.innerText = val + " µg/m³";
+                pm25El.className = "fw-bold " + getErrorColorClass('PM2.5', val);
+            }
+            if (pm10El) {
+                const val = p["PM10"] !== undefined ? p["PM10"] : 2.58;
+                pm10El.innerText = val + " µg/m³";
+                pm10El.className = "fw-bold " + getErrorColorClass('PM10', val);
+            }
+            if (ozonEl) {
+                const val = p["O3"] !== undefined ? p["O3"] : 3.63;
+                ozonEl.innerText = val + " ppb";
+                ozonEl.className = "fw-bold " + getErrorColorClass('O3', val);
+            }
+            if (coEl) {
+                const val = p["CO"] !== undefined ? p["CO"] : 21.74;
+                coEl.innerText = val + " ppb";
+                coEl.className = "fw-bold " + getErrorColorClass('CO', val);
+            }
+            if (so2El) {
+                const val = p["SO2"] !== undefined ? p["SO2"] : 0.06;
+                so2El.innerText = val + " ppb";
+                so2El.className = "fw-bold " + getErrorColorClass('SO2', val);
+            }
+            if (no2El) {
+                const val = p["NO2"] !== undefined ? p["NO2"] : 0.21;
+                no2El.innerText = val + " ppb";
+                no2El.className = "fw-bold " + getErrorColorClass('NO2', val);
+            }
         }
         
         console.log(`[ML Performance Sync] Status: ${result.status}, R2: ${result.r2_score}%, MAE: ${result.mae_score}`);
