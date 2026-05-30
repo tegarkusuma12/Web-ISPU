@@ -40,10 +40,37 @@ function initMap() {
 }
 
 // ==========================================
+// TARIK AKURASI MODEL SECARA REAL-TIME DARI BACKEND
+// ==========================================
+async function loadModelPerformance() {
+    try {
+        const response = await fetch('http://127.0.0.1:5000/api/model/performance');
+        const result = await response.json();
+        
+        const r2El = document.getElementById('model-r2-val');
+        const maeEl = document.getElementById('model-mae-val');
+        
+        if (r2El && result.r2_score) {
+            r2El.innerText = result.r2_score + "%";
+        }
+        if (maeEl && result.mae_score) {
+            maeEl.innerText = result.mae_score + " Indeks ISPU";
+        }
+        
+        console.log(`[ML Performance Sync] Status: ${result.status}, R2: ${result.r2_score}%, MAE: ${result.mae_score}`);
+    } catch (error) {
+        console.error("Gagal menarik data performa model secara real-time:", error);
+    }
+}
+
+// ==========================================
 // TARIK SEMUA DATA (PHASE-BASED DATA SOURCE HANDOFF)
 // ==========================================
 async function loadDashboard() {
     try {
+        // Tarik performa model real-time secara asinkron
+        loadModelPerformance();
+
         // PHASE 1: Initial Fast Load (GET /api/ispu/sekarang)
         const sekarangResponse = await fetch('http://127.0.0.1:5000/api/ispu/sekarang');
         const sekarangResult = await sekarangResponse.json();

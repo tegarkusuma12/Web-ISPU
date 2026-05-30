@@ -621,6 +621,21 @@
                 font-size: 4.5rem;
             }
         }
+
+        /* ML metrics panel responsive borders */
+        @media (max-width: 575.98px) {
+            .metric-col {
+                border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+                border-right: none !important;
+                padding-bottom: 0.75rem;
+                margin-bottom: 0.75rem;
+            }
+            .metric-col:last-child {
+                border-bottom: none !important;
+                padding-bottom: 0;
+                margin-bottom: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -902,6 +917,46 @@
                     
                     <div class="card-body p-0 position-relative" style="min-height: 280px;">
                         <canvas id="ispuChart"></canvas>
+                    </div>
+
+                    <!-- ML Model Performance Evaluation Strip -->
+                    <div class="row g-3 mt-3 pt-3 border-top border-light-subtle">
+                        <!-- 1. Akurasi Model (R²) -->
+                        <div class="col-sm-4 border-end border-light-subtle metric-col">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="p-2 rounded bg-success bg-opacity-10 text-success" style="font-size: 1.1rem; display: inline-flex;">
+                                    <i class="bi bi-patch-check-fill"></i>
+                                </div>
+                                <div>
+                                    <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Akurasi Model (R²)</span>
+                                    <span id="model-r2-val" class="fw-bold text-dark" style="font-size: 0.95rem;">96.82%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 2. Arsitektur AI -->
+                        <div class="col-sm-4 border-end border-light-subtle metric-col">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="p-2 rounded bg-primary bg-opacity-10 text-primary" style="font-size: 1.1rem; display: inline-flex;">
+                                    <i class="bi bi-cpu-fill"></i>
+                                </div>
+                                <div>
+                                    <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Arsitektur AI</span>
+                                    <span class="fw-bold text-dark" style="font-size: 0.95rem;">XGBoost Multi-Output (Optuna)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 3. Tingkat Error (MAE) -->
+                        <div class="col-sm-4 metric-col">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="p-2 rounded bg-warning bg-opacity-10 text-warning" style="font-size: 1.1rem; display: inline-flex;">
+                                    <i class="bi bi-shield-fill-exclamation"></i>
+                                </div>
+                                <div>
+                                    <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Tingkat Error (MAE)</span>
+                                    <span id="model-mae-val" class="fw-bold text-dark" style="font-size: 0.95rem;">3.14 Indeks ISPU</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
