@@ -172,7 +172,16 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     elif 'O3' in nama_bersih or 'OZON' in nama_bersih: polutan = 'O3'
                     else: polutan = nama_bersih 
                     
-                    pred_raw_log = model_ai.predict(df_input)
+                    # Paksa urutan kolom sama persis & isi kota yang hilang dengan 0
+                    df_input_terurut = df_input.reindex(columns=fitur_model, fill_value=0)
+                    
+                    # Ubah ke format NumPy (matriks angka murni) persis seperti saat training di Notebook
+                    X_pred_np = np.ascontiguousarray(df_input_terurut.values.astype('float32'))
+
+                    # Menebak menggunakan NumPy Array, BUKAN Pandas DataFrame
+                    pred_raw_log = model_ai.predict(X_pred_np)
+                    
+                    # Unzip ke angka asli (Microgram)
                     pred_raw_asli = np.expm1(pred_raw_log)
                     pred_list = np.array(pred_raw_asli).flatten().tolist()
                     
