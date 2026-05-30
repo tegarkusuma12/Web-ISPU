@@ -175,14 +175,17 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     # Paksa urutan kolom sama persis & isi kota yang hilang dengan 0
                     df_input_terurut = df_input.reindex(columns=fitur_model, fill_value=0)
                     
-                    # Ubah ke format NumPy (matriks angka murni) persis seperti saat training di Notebook
-                    X_pred_np = np.ascontiguousarray(df_input_terurut.values.astype('float32'))
-
-                    # Menebak menggunakan NumPy Array, BUKAN Pandas DataFrame
-                    pred_raw_log = model_ai.predict(X_pred_np)
+                    # Baris terakhir berisi rekap fitur lag/rolling yang sudah matang untuk jam ini
+                    df_baris_terakhir = df_input_terurut.iloc[[-1]]
                     
-                    # Unzip ke angka asli (Microgram)
+                    # Ubah ke NumPy
+                    X_pred_np = np.ascontiguousarray(df_baris_terakhir.values.astype('float32'))
+
+                    # AI hanya menebak dari 1 baris, hasilnya pasti murni 24 angka
+                    pred_raw_log = model_ai.predict(X_pred_np)
                     pred_raw_asli = np.expm1(pred_raw_log)
+                    
+                    # Sisanya tetap sama
                     pred_list = np.array(pred_raw_asli).flatten().tolist()
                     
                     if len(pred_list) < 24:
