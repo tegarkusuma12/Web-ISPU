@@ -30,6 +30,13 @@ def hitung_ispu_per_polutan(nama_polutan, konsentrasi):
     if konsentrasi is None or konsentrasi < 0:
         return 0
         
+    # Regulasi KemenLHK P.14/2020: 
+    # PM2.5 dihitung dengan 1 angka di belakang koma (desimal), polutan lainnya bulat tanpa desimal (integer)
+    if nama_polutan == 'PM25':
+        konsentrasi = round(float(konsentrasi), 1)
+    else:
+        konsentrasi = round(float(konsentrasi))
+        
     limits = POLUTAN_LIMITS.get(nama_polutan)
     if not limits:
         return 0

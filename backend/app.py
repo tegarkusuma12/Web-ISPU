@@ -165,8 +165,13 @@ def get_ispu_sekarang():
 def get_ispu_rolling_24h():
     """Menarik prediksi 24 jam ke depan dengan Rolling Average KEMENLHK P.14/2020"""
     try:
-        sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
-        sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
+        # Cari jam teraktual yang memiliki data di database agar timeline sinkron secara presisi
+        sekarang_utc = db.session.query(db.func.max(DataHistoris.waktu_aktual)).scalar()
+        if not sekarang_utc:
+            sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
+            sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
+        else:
+            sekarang_wib = pytz.UTC.localize(sekarang_utc).astimezone(TZ_WIB)
         
         akhir_utc = sekarang_utc + timedelta(hours=24)
         batas_historis_utc = sekarang_utc - timedelta(hours=23) # Mundur 23 jam

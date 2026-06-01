@@ -52,7 +52,7 @@ def fetch_and_save_raw_data():
                 # ---------------------------------------------------------
                 # data_json['list'] sekarang berisi array data dari H-30 sampai hari ini
                 for item in data_json['list']:
-                    waktu_aktual = datetime.fromtimestamp(item['dt'])
+                    waktu_aktual = datetime.utcfromtimestamp(item['dt'])
                     
                     # Cek duplikat menggunakan Set (jauh lebih cepat dari query DB)
                     if waktu_aktual in existing_dates:
