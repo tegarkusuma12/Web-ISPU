@@ -1,5 +1,6 @@
 # backend/ispu_logic.py
 import pandas as pd
+import numpy as np
 import warnings
 
 # Mengabaikan warning performa (fragmented dataframe) jika masih muncul
@@ -120,43 +121,36 @@ def kalkulasi_ispu_final(hasil_prediksi_dict_list):
 
 
 # ======================================================================
-# BAGIAN BARU: REKAYASA FITUR (Versi Terbaru milikmu)
+# SESUAIKAN REKAYASA FITUR
 # ======================================================================
-
-def siapkan_fitur_prediksi(df_history_jam, daftar_polutan, kolom_training_asli):
+def siapkan_fitur_prediksi(df_history):
     """
-    Fungsi untuk meracik raw data dari Supabase menjadi format yang persis
-    sama dengan yang dipelajari AI saat training (Sekarang berbasis JAM).
+    Fungsi modular untuk meracik fitur XGBoost.
+    Menerima DataFrame mentah dan mengembalikan DataFrame siap prediksi.
     """
-    df_temp = df_history_jam.copy()
+    df_temp = df_history.copy()
     
-    df_temp['waktu_aktual'] = pd.to_datetime(df_temp['waktu_aktual'])
-    df_temp = df_temp.sort_values(by='waktu_aktual').reset_index(drop=True)
-    
+    # Fitur Temporal
     df_temp['Bulan'] = df_temp['waktu_aktual'].dt.month
     df_temp['Jam'] = df_temp['waktu_aktual'].dt.hour
-    df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int)
-    
-    n_lags = 24  
+    df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int) 
 
-    for p in daftar_polutan:
-        for i in range(1, n_lags + 1):
-            df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
-            
-        df_temp[f'{p}_RollMean_72'] = df_temp[p].rolling(window=72).mean()
-        df_temp[f'{p}_RollMax_72'] = df_temp[p].rolling(window=72).max()
+    daftar_polutan = ['pm25', 'pm10', 'so2', 'co', 'no2', 'ozon']
         
-    if 'nama_wilayah' in df_temp.columns:
-        df_temp = pd.get_dummies(df_temp, columns=['nama_wilayah'])
-        df_temp.columns = [col.replace('nama_wilayah_', 'Kota_') for col in df_temp.columns]
+    # Fitur Lag & Rolling
+    for p in daftar_polutan:
+        for i in range(1, 25): # Mundur 24 jam
+            df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
+        df_temp[f'{p}_RollMean_72'] = df_temp[p].rolling(window=72, min_periods=1).mean()
+        df_temp[f'{p}_RollMax_72'] = df_temp[p].rolling(window=72, min_periods=1).max() 
+
+    # NaN menjadi 0  
+    df_temp = df_temp.fillna(0)
+
+    wilayah_list = [str(i) for i in range(1, 39)] 
     
-    X_prediksi_besok = df_temp.iloc[[-1]].copy()
+    # One-Hot Encoding (Tambahkan dtype=int agar XGBoost menerima angka murni)
+    df_temp['id_wilayah'] = pd.Categorical(df_temp['id_wilayah'].astype(str), categories=wilayah_list)
+    df_temp = pd.get_dummies(df_temp, columns=['id_wilayah'], dtype=int)
     
-    missing_cols = [col for col in kolom_training_asli if col not in X_prediksi_besok.columns]
-    
-    if missing_cols:
-        X_prediksi_besok[missing_cols] = 0
-            
-    X_prediksi_besok = X_prediksi_besok[kolom_training_asli]
-    
-    return X_prediksi_besok
+    return df_temp

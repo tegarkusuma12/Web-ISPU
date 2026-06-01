@@ -141,13 +141,14 @@ def get_ispu_sekarang():
                 "kategori": ispu.kategori_ispu,
                 "parameter_kritis": ispu.parameter_kritis
             })
-            
-        # Pastikan format waktu aman untuk dikirim lewat JSON (menjadi String)
-        waktu_str = pytz.UTC.localize(waktu_terakhir).astimezone(TZ_WIB).strftime("%H:%M")
+
+        # Database menyimpan UTC Naive
+        waktu_utc = pytz.UTC.localize(waktu_terakhir)
+        waktu_wib = waktu_utc.astimezone(TZ_WIB)
         
         return jsonify({
             "status": "REAL_DATA",
-            "waktu_pembaruan": waktu_str, 
+            "waktu_pembaruan": waktu_wib.strftime("%H:%M"), 
             "total_kota": len(hasil_kota),
             "data": hasil_kota
         }), 200
@@ -165,22 +166,30 @@ def get_ispu_sekarang():
 def get_ispu_rolling_24h():
     """Menarik prediksi 24 jam ke depan dengan Rolling Average KEMENLHK P.14/2020"""
     try:
-        sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
-        sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
+        # 1. Cari tahu jam berapa data historis terakhir kali masuk ke database
+        sekarang_db = db.session.query(db.func.max(DataHistoris.waktu_aktual)).scalar()
         
-        akhir_utc = sekarang_utc + timedelta(hours=24)
-        batas_historis_utc = sekarang_utc - timedelta(hours=23) # Mundur 23 jam
+        if not sekarang_db:
+            return jsonify({"error": "Data historis belum tersedia."}), 404
+            
+        # 2. Jadikan waktu database tersebut sebagai patokan mutlak "Sekarang"
+        sekarang_utc = pytz.UTC.localize(sekarang_db)
+        sekarang_wib = sekarang_utc.astimezone(TZ_WIB)
+
+        akhir_db = sekarang_db + timedelta(hours=24)
+        batas_historis_db = sekarang_db - timedelta(hours=23)
+        # ----------------------------------
         
         # 1. Tarik Data Historis 24 Jam terakhir untuk SEMUA kota sekaligus
         data_historis = db.session.query(DataHistoris, WilayahDetails)\
                           .join(WilayahDetails, DataHistoris.id_wilayah == WilayahDetails.id_wilayah)\
-                          .filter(DataHistoris.waktu_aktual >= batas_historis_utc, DataHistoris.waktu_aktual <= sekarang_utc)\
+                          .filter(DataHistoris.waktu_aktual >= batas_historis_db, DataHistoris.waktu_aktual <= sekarang_db)\
                           .order_by(WilayahDetails.nama_wilayah, DataHistoris.waktu_aktual.asc()).all()
         
         # 2. Tarik Tebakan AI 24 Jam ke depan untuk SEMUA kota sekaligus
         data_prediksi = db.session.query(Predictions, WilayahDetails)\
                           .join(WilayahDetails, Predictions.id_wilayah == WilayahDetails.id_wilayah)\
-                          .filter(Predictions.target_waktu > sekarang_utc, Predictions.target_waktu <= akhir_utc)\
+                          .filter(Predictions.target_waktu > sekarang_db, Predictions.target_waktu <= akhir_db)\
                           .order_by(WilayahDetails.nama_wilayah, Predictions.target_waktu.asc()).all()
         
         from collections import defaultdict
@@ -219,7 +228,8 @@ def get_ispu_rolling_24h():
             # --- 2. SUNTIKAN DATA RIIL (0h / JAM INI) SEBAGAI AWALAN ---
             if h_list:
                 riil_terakhir = h_list[-1]
-                waktu_0h_utc = pytz.UTC.localize(riil_terakhir.waktu_aktual)
+
+                waktu_0h_utc = pytz.UTC.localize(h_list[-1].waktu_aktual)
                 waktu_0h_wib = waktu_0h_utc.astimezone(TZ_WIB)
                 
                 dict_polutan_0h = {
@@ -352,20 +362,20 @@ def get_ispu_kota(nama_kota):
         # KANVAS GRAFIK: HISTORIS (Ambil Matang dari Database)
         # ==============================================================
         hasil_grafik = []
-        sekarang_wib = datetime.now(TZ_WIB).replace(minute=0, second=0, microsecond=0)
-        sekarang_utc = sekarang_wib.astimezone(pytz.UTC).replace(tzinfo=None)
+        waktu_terakhir_db = db.session.query(db.func.max(IspuHistoris.waktu_kalkulasi)).scalar()
+        sekarang_db = waktu_terakhir_db or datetime.now().replace(minute=0, second=0, microsecond=0)
 
         if filter_tipe == '24jam':
-            batas_waktu_utc = sekarang_utc - timedelta(hours=24)
-            # PERBAIKAN: Langsung query IspuHistoris, tidak perlu kalkulasi on-the-fly lagi!
+            batas_waktu_db = sekarang_db - timedelta(hours=24)
+            # PERBAIKAN: Langsung query IspuHistoris
             data_historis = IspuHistoris.query.filter(
                 IspuHistoris.id_wilayah == wilayah.id_wilayah,
-                IspuHistoris.waktu_kalkulasi >= batas_waktu_utc,
-                IspuHistoris.waktu_kalkulasi <= sekarang_utc
+                IspuHistoris.waktu_kalkulasi >= batas_waktu_db,
+                IspuHistoris.waktu_kalkulasi <= sekarang_db
             ).order_by(IspuHistoris.waktu_kalkulasi.asc()).all()
             
             for row in data_historis:
-                waktu_wib = pytz.UTC.localize(row.waktu_kalkulasi).astimezone(TZ_WIB)
+                waktu_wib = TZ_WIB.localize(row.waktu_kalkulasi)
                 hasil_grafik.append({
                     "tanggal": waktu_wib.strftime("%H:00"), 
                     "nilai_ispu": row.nilai_ispu
@@ -373,18 +383,18 @@ def get_ispu_kota(nama_kota):
                     
         else:
             days_filter = int(filter_tipe) if filter_tipe.isdigit() else 7
-            batas_waktu_utc = sekarang_utc - timedelta(days=days_filter)
+            batas_waktu_db = sekarang_db - timedelta(days=days_filter)
             
             data_historis = IspuHistoris.query.filter(
                 IspuHistoris.id_wilayah == wilayah.id_wilayah,
-                IspuHistoris.waktu_kalkulasi >= batas_waktu_utc,
-                IspuHistoris.waktu_kalkulasi <= sekarang_utc
+                IspuHistoris.waktu_kalkulasi >= batas_waktu_db,
+                IspuHistoris.waktu_kalkulasi <= sekarang_db
             ).order_by(IspuHistoris.waktu_kalkulasi.asc()).all()
             
             # Pengelompokan harian
             harian_dict = {}
             for row in data_historis:
-                waktu_wib = pytz.UTC.localize(row.waktu_kalkulasi).astimezone(TZ_WIB)
+                waktu_wib = TZ_WIB.localize(row.waktu_kalkulasi)
                 tgl_str = waktu_wib.strftime("%d %b")
                 
                 if tgl_str not in harian_dict:

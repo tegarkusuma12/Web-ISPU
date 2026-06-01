@@ -133,34 +133,35 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
             if not riwayat: # Jika benar-benar kosong (0), baru lewati
                 continue
 
-            data_list = [{'waktu_aktual': r.waktu_aktual, 'nama_wilayah': wilayah.nama_wilayah,
-                          'PM25': r.pm25, 'PM10': r.pm10, 'SO2': r.so2, 
-                          'CO': r.co, 'NO2': r.no2, 'O3': r.ozon} for r in riwayat]
+            # PERBAIKAN NAMA: Ubah 'O3' menjadi 'OZON' agar sama dengan Notebook
+            data_list = [{'waktu_aktual': r.waktu_aktual, 'id_wilayah': wilayah.id_wilayah,
+                          'pm25': r.pm25, 'pm10': r.pm10, 'so2': r.so2, 
+                          'co': r.co, 'no2': r.no2, 'ozon': r.ozon} for r in riwayat]
             
             df_history_jam = pd.DataFrame(data_list)
             
-            # Jika data kurang dari 72 jam, Kloning data tertua
-            if len(df_history_jam) < 72:
-                baris_terlama = df_history_jam.iloc[0:1] # Ambil baris pertama
-                kekurangan = 72 - len(df_history_jam)
-                # Gandakan baris tersebut sebanyak kekurangannya
-                tambahan = pd.concat([baris_terlama] * kekurangan, ignore_index=True)
-                # Gabungkan menjadi 72 baris utuh
-                df_history_jam = pd.concat([tambahan, df_history_jam], ignore_index=True)
-                
-            df_history_jam = df_history_jam.ffill().fillna(0)
-            
-            daftar_polutan = ['PM25', 'PM10', 'SO2', 'CO', 'NO2', 'O3']
-            df_input = siapkan_fitur_prediksi(df_history_jam, daftar_polutan, fitur_model)
+            # PANGGIL FUNGSI MODULAR DARI ISPU_LOGIC 
+            df_temp = siapkan_fitur_prediksi(df_history_jam)
 
             try:
                 dict_prediksi_array = {}
-                import numpy as np 
                 
                 # --- CETAK NAMA ASLI MODEL KE TERMINAL ---
-                if wilayah.id_wilayah == 1: # Cukup print 1 kali saja untuk kota pertama
-                    print(f"   [DEBUG DETEKTIF] Kunci asli model di .pkl: {list(dict_model_spesialis.keys())}")
+                if wilayah.id_wilayah == 1: 
+                    print(f" [DEBUG DETEKTIF] Kunci asli model di .pkl: {list(dict_model_spesialis.keys())}")
                 
+                print("\n" + "="*50)
+                print("DEBUG MODEL")
+                # print(f"Model meminta {len(fitur_model)} fitur. Contoh:")
+                # print("=>", fitur_model[:15])
+                # print(f"Kita membuat {len(df_temp.columns)} fitur. Contoh:")
+                # print("=>", df_temp.columns.tolist()[:15])
+                
+                hilang = set(fitur_model) - set(df_temp.columns)
+                print(f"\n[!] ADA {len(hilang)} FITUR YANG TIDAK COCOK! Wilayah : {wilayah.nama_wilayah}")
+                # print("Contoh yang hilang/salah eja:", list(hilang)[:10])
+                print("="*50 + "\n")
+
                 for nama_target, model_ai in dict_model_spesialis.items():
                     # Filter super agresif: buang spasi, titik, dan underscore
                     nama_bersih = nama_target.upper().replace('.', '').replace('_', '').replace(' ', '')
@@ -169,15 +170,27 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     elif 'SO2' in nama_bersih: polutan = 'SO2'
                     elif 'CO' in nama_bersih: polutan = 'CO'
                     elif 'NO2' in nama_bersih: polutan = 'NO2'
-                    elif 'O3' in nama_bersih or 'OZON' in nama_bersih: polutan = 'O3'
+                    elif 'O3' in nama_bersih or 'OZON' in nama_bersih: polutan = 'OZON' 
                     else: polutan = nama_bersih 
                     
-                    # Paksa urutan kolom sama persis & isi kota yang hilang dengan 0
-                    df_input_terurut = df_input.reindex(columns=fitur_model, fill_value=0)
+                    df_input_terurut = df_temp.reindex(columns=fitur_model, fill_value=0)
                     
                     # Baris terakhir berisi rekap fitur lag/rolling yang sudah matang untuk jam ini
                     df_baris_terakhir = df_input_terurut.iloc[[-1]]
                     
+                    # ========================================================
+                    # INTIP ISI DATA SEBELUM MASUK KE AI
+                    # ========================================================
+                    if wilayah.id_wilayah == 1 and polutan == 'PM25':
+                        print(f"\nWUJUD DATA YANG DITERIMA XGBOOST UNTUK SURABAYA:")
+                        # Print 5 kolom penting: pm25 mentah jam ini, lag 1 jam, lag 24 jam, rata2, dan jam
+                        cek_kolom = ['pm25', 'pm25_H-1', 'pm25_H-24', 'pm25_RollMean_72', 'Jam']
+                        # Pastikan kolomnya ada agar tidak error saat di-print
+                        kolom_tersedia = [k for k in cek_kolom if k in df_baris_terakhir.columns]
+                        print(df_baris_terakhir[kolom_tersedia].to_string(index=False))
+                        print("========================================================\n")
+                    # ========================================================
+
                     # Ubah ke NumPy
                     X_pred_np = np.ascontiguousarray(df_baris_terakhir.values.astype('float32'))
 
@@ -208,7 +221,6 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     key_waktu = target_waktu_jam.strftime('%Y-%m-%d %H:%M:%S')
                     idx = jam_ke - 1
                     
-                    # max(0, nilai) akan mengubah semua angka minus menjadi 0 mutlak
                     val_pm25 = float(max(0, dict_prediksi_array.get('PM25', [0]*24)[idx]))
                     val_pm10 = float(max(0, dict_prediksi_array.get('PM10', [0]*24)[idx]))
                     val_so2  = float(max(0, dict_prediksi_array.get('SO2', [0]*24)[idx]))
@@ -239,6 +251,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
             except Exception as e:
                 import traceback
                 print(f"   [!] Gagal memprediksi rolling {wilayah.nama_wilayah}: {e}")
+                print(traceback.format_exc())
 
         try:
             if prediksi_baru_massal:
