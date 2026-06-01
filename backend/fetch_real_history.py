@@ -13,16 +13,16 @@ def fetch_and_save_raw_data():
         daftar_wilayah = WilayahDetails.query.all()
         API_KEY = os.getenv("OPENWEATHER_API_KEY")
         
-        # 1. Tentukan rentang waktu 
-        end_date = datetime.now().replace(minute=0, second=0, microsecond=0)
-        start_date = end_date - timedelta(days=30) # 30 hari terakhir sampai jam ini
+        # 1. Tentukan rentang waktu (Mulai dari 18 Mei 2024 s/d sekarang)
+        end_date = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        start_date = datetime(2024, 5, 18, 0, 0, 0)
         
-        # OpenWeatherMap API History membutuhkan format Unix Timestamp
-        start_unix = int(start_date.timestamp())
-        end_unix = int(end_date.timestamp())
+        # OpenWeatherMap API History membutuhkan format Unix Timestamp (UTC independen)
+        start_unix = int((start_date - datetime(1970, 1, 1)).total_seconds())
+        end_unix = int((end_date - datetime(1970, 1, 1)).total_seconds())
         
         for wilayah in daftar_wilayah:
-            print(f"Menarik data historis untuk: {wilayah.nama_wilayah}...")
+            print(f"[FETCH] Menarik data historis untuk: {wilayah.nama_wilayah}...")
             
             try:
                 # ---------------------------------------------------------
@@ -34,13 +34,10 @@ def fetch_and_save_raw_data():
                 data_json = response.json()
                 
                 # ---------------------------------------------------------
-                # 3. CEK ANTI-DUPLIKAT (Menggunakan Set Memori)
+                # 3. CEK ANTI-DUPLIKAT (Menggunakan Set Memori Tanpa Filter Waktu)
                 # ---------------------------------------------------------
-                # Daripada mengecek DB satu-satu untuk 720 jam, kita tarik semua 
-                # tanggal yang sudah ada di DB untuk kota ini ke dalam Python Set.
                 existing_records = DataHistoris.query.filter(
-                    DataHistoris.id_wilayah == wilayah.id_wilayah,
-                    DataHistoris.waktu_aktual >= start_date
+                    DataHistoris.id_wilayah == wilayah.id_wilayah
                 ).with_entities(DataHistoris.waktu_aktual).all()
                 
                 existing_dates = {record[0] for record in existing_records}
@@ -50,9 +47,8 @@ def fetch_and_save_raw_data():
                 # ---------------------------------------------------------
                 # 4. LOOPING DATA PER JAM DARI API
                 # ---------------------------------------------------------
-                # data_json['list'] sekarang berisi array data dari H-30 sampai hari ini
                 for item in data_json['list']:
-                    waktu_aktual = datetime.fromtimestamp(item['dt'])
+                    waktu_aktual = datetime.utcfromtimestamp(item['dt'])
                     
                     # Cek duplikat menggunakan Set (jauh lebih cepat dari query DB)
                     if waktu_aktual in existing_dates:
@@ -74,33 +70,33 @@ def fetch_and_save_raw_data():
                     db.session.add(data_mentah)
                     data_baru_count += 1
                     
-                print(f"Menambahkan {data_baru_count} data jam baru untuk {wilayah.nama_wilayah}.")
+                print(f"[INFO] Menambahkan {data_baru_count} data jam baru untuk {wilayah.nama_wilayah}.")
                 
                 db.session.commit()
-                print(f"✅ Data {wilayah.nama_wilayah} berhasil diamankan ke database.")
+                print(f"[OK] Data {wilayah.nama_wilayah} berhasil diamankan ke database.")
 
             except Exception as e:
                 db.session.rollback()
-                print(f"Gagal menarik data historis untuk {wilayah.nama_wilayah}: {e}")
+                print(f"[ERROR] Gagal menarik data historis untuk {wilayah.nama_wilayah}: {e}")
 
 # ==============================================================================
-# FUNGSI BACKFILL: MENGHITUNG ISPU MUNDUR UNTUK 30 HARI
+# FUNGSI BACKFILL: MENGHITUNG ISPU MUNDUR UNTUK 2 TAHUN (SEJAK 18 MEI 2024)
 # ==============================================================================
 def backfill_ispu_historis_30_hari():
-    print("\n🚀 Memulai Proses Backfilling ISPU Historis (Aturan 24 Jam KEMENLHK)...")
+    print("\n[START] Memulai Proses Backfilling ISPU Historis (Aturan 24 Jam KEMENLHK)...")
     
     with app.app_context():
         daftar_wilayah = WilayahDetails.query.all()
         
         for wilayah in daftar_wilayah:
-            print(f" ⏳ Memproses riwayat kota: {wilayah.nama_wilayah}...")
+            print(f" [~] Memproses riwayat kota: {wilayah.nama_wilayah}...")
             
-            # 1. Ambil seluruh data mentah yang baru saja di-download, urut dari terlama ke terbaru
+            # 1. Ambil seluruh data mentah yang ada di database, urut dari terlama ke terbaru
             riwayat_mentah = DataHistoris.query.filter_by(id_wilayah=wilayah.id_wilayah)\
                                                .order_by(DataHistoris.waktu_aktual.asc()).all()
             
             if len(riwayat_mentah) < 18:
-                print(f"   [!] Data historis kurang dari 18 jam, lewati.")
+                print(f"   [WARN] Data historis kurang dari 18 jam, lewati.")
                 continue
 
             ispu_massal = []
@@ -136,7 +132,7 @@ def backfill_ispu_historis_30_hari():
                     'O3':   [r.ozon for r in jendela_24j]
                 }
                 
-                # 4. Lempar ke kalkulator Dosen Utama
+                # 4. Lempar ke kalkulator
                 hasil_ispu = kalkulasi_ispu_final(dict_raw)
                 
                 if hasil_ispu['skor_ispu_final'] > 0:
@@ -150,17 +146,20 @@ def backfill_ispu_historis_30_hari():
                     )
                     ispu_massal.append(catatan)
             
-            # 5. Simpan massal ke Supabase
+            # 5. Simpan massal ke Supabase dalam batch kecil agar aman dari timeout
             try:
                 if ispu_massal:
-                    db.session.bulk_save_objects(ispu_massal)
-                    db.session.commit()
-                    print(f"   [+] Berhasil mencetak {len(ispu_massal)} riwayat ISPU ke database.")
+                    batch_size = 5000
+                    for j in range(0, len(ispu_massal), batch_size):
+                        chunk = ispu_massal[j:j+batch_size]
+                        db.session.bulk_save_objects(chunk)
+                        db.session.commit()
+                    print(f"   [SUCCESS] Berhasil mencetak {len(ispu_massal)} riwayat ISPU ke database.")
                 else:
-                    print(f"   [-] Tidak ada data baru untuk ditambahkan.")
+                    print(f"   [INFO] Tidak ada data baru untuk ditambahkan.")
             except Exception as e:
                 db.session.rollback()
-                print(f"   [!] Gagal menyimpan data: {e}")
+                print(f"   [ERROR] Gagal menyimpan data: {e}")
 
 if __name__ == "__main__":
     fetch_and_save_raw_data()
