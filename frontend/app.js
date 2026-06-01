@@ -171,9 +171,10 @@ async function loadDashboard() {
                 allCitiesData = rollingResult.data || [];
                 isTimelineReady = true;
                 
-                // Unlock the slider input in the UI
+                // Unlock the slider input in the UI and set dynamic maximum limit
                 const timeSlider = document.getElementById('timeSlider');
-                if (timeSlider) {
+                if (timeSlider && allCitiesData.length > 0 && allCitiesData[0].timeline) {
+                    timeSlider.max = allCitiesData[0].timeline.length - 1;
                     timeSlider.disabled = false;
                 }
                 
