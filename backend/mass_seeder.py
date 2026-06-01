@@ -13,17 +13,17 @@ def mass_insert_data(csv_path):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
     if not db_url:
-        raise ValueError("🚨 DATABASE_URL_DIRECT tidak ditemukan di file .env!")
+        raise ValueError("[ERROR] DATABASE_URL_DIRECT tidak ditemukan di file .env!")
 
     engine = create_engine(db_url)
 
     # 2. Baca Dataset Masif dari CSV lokal
-    print(f"📖 Membaca file CSV: {csv_path} ...")
+    print(f"[READ] Membaca file CSV: {csv_path} ...")
     start_time = time.time()
     df = pd.read_csv(csv_path)
     
     # ------------------ BAGIAN PENERJEMAH (MAPPING) ------------------
-    print("🔍 Mengambil kamus id_wilayah dari tabel wilayah_details di Supabase...")
+    print("[SEARCH] Mengambil kamus id_wilayah dari tabel wilayah_details di Supabase...")
     
     # Menarik data dari tabel wilayah_details untuk mencocokkan ID
     df_wilayah = pd.read_sql("SELECT id_wilayah, nama_wilayah FROM wilayah_details", engine)
@@ -37,7 +37,7 @@ def mass_insert_data(csv_path):
     # CEK KEAMANAN: Apakah ada kota di CSV yang namanya tidak sama persis dengan di Supabase?
     kota_tak_dikenal = df[df['id_wilayah'].isna()]['Kota'].unique()
     if len(kota_tak_dikenal) > 0:
-        print(f"⚠️ PERINGATAN! Ada kota di CSV yang tidak ditemukan di database: {kota_tak_dikenal}")
+        print(f"[WARN] Ada kota di CSV yang tidak ditemukan di database: {kota_tak_dikenal}")
         print("Pastikan penulisan namanya sama persis (misal: 'Kota Surabaya' bukan 'Surabaya').")
         print("Menghapus baris yang kotanya tidak dikenali agar tidak error...")
         df = df.dropna(subset=['id_wilayah'])
@@ -61,52 +61,60 @@ def mass_insert_data(csv_path):
     df['id_wilayah'] = df['id_wilayah'].astype(int)
     # -----------------------------------------------------------------
     
-    print(f"📊 Total amunisi data yang siap disetor: {len(df)} baris.")
+    print(f"[INFO] Total amunisi data yang siap disetor: {len(df)} baris.")
 
-    # Nama tabel staging sementara
     staging_table = "temp_staging_historis"
+    batch_size = 50000
+    total_rows = len(df)
+    
+    print(f"\n[START] Memulai proses Bulk Upsert dalam batch {batch_size:,} baris untuk menghindari timeout Supabase...")
 
     try:
-        # Menggunakan konteks transaksi engine.begin() agar jika gagal, otomatis rollback (aman)
-        with engine.begin() as conn:
-            print("\n🚀 Langkah 1: Mengunggah data ke tabel staging sementara...")
-            # Mengunggah data masif ke tabel sementara (Sangat cepat dibanding insert satu per satu)
-            df.to_sql(staging_table, conn, if_exists="replace", index=False)
+        # Proses per batch agar transaksi berumur pendek (ringan di RAM & aman dari limit parameter)
+        for start_idx in range(0, total_rows, batch_size):
+            end_idx = min(start_idx + batch_size, total_rows)
+            chunk_df = df.iloc[start_idx:end_idx]
+            batch_num = (start_idx // batch_size) + 1
             
-            print("🔄 Langkah 2: Memulai proses sinkronisasi (Bulk Upsert) ke tabel utama...")
-            # Kueri SQL tingkat lanjut untuk memindahkan data dari tabel sementara ke tabel utama.
-            # CATATAN: Kolom skor_ispu dan kategori_ispu sudah dihapus dari kueri ini.
-            query_upsert = """
-                INSERT INTO public.data_historis (
-                    waktu_aktual, id_wilayah, pm25, pm10, so2, co, no2, ozon
-                )
-                SELECT 
-                    CAST(waktu_aktual AS TIMESTAMP WITH TIME ZONE), 
-                    id_wilayah, pm25, pm10, so2, co, no2, ozon
-                FROM temp_staging_historis
-                ON CONFLICT (id_wilayah, waktu_aktual) 
-                DO UPDATE SET 
-                    pm25 = EXCLUDED.pm25,
-                    pm10 = EXCLUDED.pm10,
-                    so2 = EXCLUDED.so2,
-                    co = EXCLUDED.co,
-                    no2 = EXCLUDED.no2,
-                    ozon = EXCLUDED.ozon;
-            """
-            conn.execute(text(query_upsert))
-            print("✅ Langkah 3: Sinkronisasi selesai! Data berhasil masuk tanpa duplikat.")
+            print(f"   [~] Mengunggah batch #{batch_num}: baris {start_idx:,} s/d {end_idx:,}...")
+            
+            with engine.begin() as conn:
+                # 1. Tulis batch kecil ke staging table
+                chunk_df.to_sql(staging_table, conn, if_exists="replace", index=False)
+                
+                # 2. Jalankan bulk upsert dari staging ke tabel utama
+                query_upsert = """
+                    INSERT INTO public.data_historis (
+                        waktu_aktual, id_wilayah, pm25, pm10, so2, co, no2, ozon
+                    )
+                    SELECT 
+                        CAST(waktu_aktual AS TIMESTAMP WITH TIME ZONE), 
+                        id_wilayah, pm25, pm10, so2, co, no2, ozon
+                    FROM temp_staging_historis
+                    ON CONFLICT (id_wilayah, waktu_aktual) 
+                    DO UPDATE SET 
+                        pm25 = EXCLUDED.pm25,
+                        pm10 = EXCLUDED.pm10,
+                        so2 = EXCLUDED.so2,
+                        co = EXCLUDED.co,
+                        no2 = EXCLUDED.no2,
+                        ozon = EXCLUDED.ozon;
+                """
+                conn.execute(text(query_upsert))
+                
+        print("[SUCCESS] Proses Bulk Upsert selesai! Semua data berhasil masuk tanpa duplikat.")
 
     except Exception as e:
-        print(f"❌ Proses gagal! Terjadi kesalahan: {e}")
+        print(f"[FAIL] Proses gagal! Terjadi kesalahan: {e}")
 
     finally:
         # Menghapus tabel staging sementara agar database Supabase kembali bersih
         with engine.begin() as conn:
             conn.execute(text(f"DROP TABLE IF EXISTS {staging_table};"))
-            print("🧹 Tabel staging sementara berhasil dibersihkan dari Supabase.")
+            print("[CLEANUP] Tabel staging sementara berhasil dibersihkan dari Supabase.")
             
     end_time = time.time()
-    print(f"\n⏱️  Selesai dalam {end_time - start_time:.2f} detik! Database-mu sekarang sudah gendut.")
+    print(f"\n[OK] Selesai dalam {end_time - start_time:.2f} detik! Database-mu sekarang sudah gendut.")
 
 if __name__ == "__main__":
     # GANTI dengan nama file CSV masif milikmu yang berada di folder lokal
@@ -115,4 +123,4 @@ if __name__ == "__main__":
     if os.path.exists(NAMA_FILE_CSV):
         mass_insert_data(NAMA_FILE_CSV)
     else:
-        print(f"⚠️ File '{NAMA_FILE_CSV}' tidak ditemukan. Taruh file CSV di folder yang sama dengan script ini!")
+        print(f"[WARN] File '{NAMA_FILE_CSV}' tidak ditemukan. Taruh file CSV di folder yang sama dengan script ini!")

@@ -17,12 +17,12 @@ ISPU_RANGES = [
 
 # Tabel Batas Polutan 
 POLUTAN_LIMITS = {
-    'PM10': [[0, 50], [51, 150], [151, 350], [351, 420], [421, 500]],
-    'PM25': [[0, 15.5], [15.6, 55.4], [55.5, 150.4], [150.5, 250.4], [250.5, 500]],
-    'CO':   [[0, 4000], [4001, 8000], [8001, 15000], [15001, 30000], [30001, 45000]],
-    'O3':   [[0, 120], [121, 235], [236, 400], [401, 800], [801, 1000]],
-    'NO2':  [[0, 80], [81, 200], [201, 1130], [1131, 2260], [2261, 3000]],
-    'SO2':  [[0, 52], [53, 180], [181, 400], [401, 800], [801, 1200]] 
+    'PM10': [[0, 50], [50, 150], [150, 350], [350, 420], [420, 500]],
+    'PM25': [[0, 15.5], [15.5, 55.4], [55.4, 150.4], [150.4, 250.4], [250.4, 500]],
+    'CO':   [[0, 4000], [4000, 8000], [8000, 15000], [15000, 30000], [30000, 45000]],
+    'O3':   [[0, 120], [120, 235], [235, 400], [400, 800], [800, 1000]],
+    'NO2':  [[0, 80], [80, 200], [200, 1130], [1130, 2260], [2260, 3000]],
+    'SO2':  [[0, 52], [52, 180], [180, 400], [400, 800], [800, 1200]] 
 }
 
 def hitung_ispu_per_polutan(nama_polutan, konsentrasi):
@@ -45,13 +45,16 @@ def hitung_ispu_per_polutan(nama_polutan, konsentrasi):
         batas_bawah_c = limits[i][0]
         batas_atas_c = limits[i][1]
         
-        if batas_bawah_c <= konsentrasi <= batas_atas_c:
+        # PERBAIKAN: Gunakan <= untuk indeks pertama (i==0) untuk mencakup angka 0
+        # Gunakan batas_bawah_c < konsentrasi untuk menghindari tumpang tindih (overlap)
+        if (i == 0 and batas_bawah_c <= konsentrasi <= batas_atas_c) or (i > 0 and batas_bawah_c < konsentrasi <= batas_atas_c):
             batas_bawah_i = ISPU_RANGES[i][0]
             batas_atas_i = ISPU_RANGES[i][1]
             
             ispu = ((batas_atas_i - batas_bawah_i) / (batas_atas_c - batas_bawah_c)) * (konsentrasi - batas_bawah_c) + batas_bawah_i
             return round(ispu)
             
+    # Jika melebihi batas indeks berbahaya
     return 500
 
 def tentukan_status_ispu(nilai_ispu):
