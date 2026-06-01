@@ -17,9 +17,9 @@ def fetch_and_save_raw_data():
         end_date = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
         start_date = datetime(2024, 5, 18, 0, 0, 0)
         
-        # OpenWeatherMap API History membutuhkan format Unix Timestamp
-        start_unix = int(start_date.timestamp())
-        end_unix = int(end_date.timestamp())
+        # OpenWeatherMap API History membutuhkan format Unix Timestamp (UTC independen)
+        start_unix = int((start_date - datetime(1970, 1, 1)).total_seconds())
+        end_unix = int((end_date - datetime(1970, 1, 1)).total_seconds())
         
         for wilayah in daftar_wilayah:
             print(f"[FETCH] Menarik data historis untuk: {wilayah.nama_wilayah}...")
@@ -34,11 +34,10 @@ def fetch_and_save_raw_data():
                 data_json = response.json()
                 
                 # ---------------------------------------------------------
-                # 3. CEK ANTI-DUPLIKAT (Menggunakan Set Memori)
+                # 3. CEK ANTI-DUPLIKAT (Menggunakan Set Memori Tanpa Filter Waktu)
                 # ---------------------------------------------------------
                 existing_records = DataHistoris.query.filter(
-                    DataHistoris.id_wilayah == wilayah.id_wilayah,
-                    DataHistoris.waktu_aktual >= start_date - timedelta(days=2)
+                    DataHistoris.id_wilayah == wilayah.id_wilayah
                 ).with_entities(DataHistoris.waktu_aktual).all()
                 
                 existing_dates = {record[0] for record in existing_records}
