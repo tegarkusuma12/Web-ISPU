@@ -173,11 +173,15 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     elif 'O3' in nama_bersih or 'OZON' in nama_bersih: polutan = 'OZON' 
                     else: polutan = nama_bersih 
                     
+                    # Pastikan semua fitur yang diminta model (termasuk 37 id_wilayah lainnya) diisi dengan angka 0 jika tidak ada.
                     df_input_terurut = df_temp.reindex(columns=fitur_model, fill_value=0)
+                    
+                    # Pastikan tipe datanya adalah angka (float32) 
+                    df_input_terurut = df_input_terurut.astype('float32')
                     
                     # Baris terakhir berisi rekap fitur lag/rolling yang sudah matang untuk jam ini
                     df_baris_terakhir = df_input_terurut.iloc[[-1]]
-                    
+
                     # ========================================================
                     # INTIP ISI DATA SEBELUM MASUK KE AI
                     # ========================================================
@@ -192,7 +196,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                     # ========================================================
 
                     # Ubah ke NumPy
-                    X_pred_np = np.ascontiguousarray(df_baris_terakhir.values.astype('float32'))
+                    X_pred_np = np.ascontiguousarray(df_baris_terakhir.values)
 
                     # AI hanya menebak dari 1 baris, hasilnya pasti murni 24 angka
                     pred_raw_log = model_ai.predict(X_pred_np)
@@ -269,11 +273,16 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
     print(f" 🔹 [4/4] Menghitung ISPU Aktual dari Data Riil...")
     with app.app_context():
         daftar_wilayah = WilayahDetails.query.all()
-        ispu_aktual_massal = []
+        
+        # Kita cari apakah di database sudah ada perhitungan ISPU untuk jam ini
+        data_eksisting = IspuHistoris.query.filter_by(waktu_kalkulasi=waktu_jam_ini).all()
+        kamus_eksisting = {rekam.id_wilayah: rekam for rekam in data_eksisting}
+
+        # NAMA LIST untuk data yang benar-benar baru
+        ispu_aktual_baru = [] 
         
         for wilayah in daftar_wilayah:
             batas_waktu_24j = waktu_jam_ini - timedelta(hours=23) 
-            # Mengurutkan berdasarkan waktu untuk memastikan data_terakhir adalah jam ini
             riwayat_24j = DataHistoris.query.filter(
                 DataHistoris.id_wilayah == wilayah.id_wilayah,
                 DataHistoris.waktu_aktual >= batas_waktu_24j,
@@ -283,43 +292,50 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
             if not riwayat_24j:
                 continue
                 
-            # --- PERUBAHAN DIMULAI DI SINI ---
-            # scheduler.py HANYA membungkus data mentah menjadi List
             dict_raw_riil = {
                 'PM25': [r.pm25 for r in riwayat_24j],
                 'PM10': [r.pm10 for r in riwayat_24j],
                 'SO2':  [r.so2 for r in riwayat_24j],
                 'CO':   [r.co for r in riwayat_24j],
                 'NO2':  [r.no2 for r in riwayat_24j],
-                'O3':   [r.ozon for r in riwayat_24j] # Menggunakan 'O3' agar seragam dengan ispu_logic
+                'O3':   [r.ozon for r in riwayat_24j]
             }
             
-            # Pendelegasian perhitungan rata-rata dan konversi ke ispu_logic.py
             hasil_ispu = kalkulasi_ispu_final(dict_raw_riil)
-            # --- PERUBAHAN SELESAI ---
-            
-            # Ambil id_data dari data jam ini untuk disambungkan ke tabel ispu_historis
             data_terakhir = riwayat_24j[-1]
             
-            # Format minimalis: tambahkan waktu_kalkulasi agar database tidak menolak
-            catatan_ispu = IspuHistoris(
-                id_wilayah=wilayah.id_wilayah,
-                id_data=data_terakhir.id_data,
-                waktu_kalkulasi=waktu_jam_ini, 
-                nilai_ispu=hasil_ispu['skor_ispu_final'],
-                kategori_ispu=hasil_ispu['kategori_ispu'],
-                parameter_kritis=hasil_ispu['polutan_kritis']
-            )
-            ispu_aktual_massal.append(catatan_ispu)
+            # LOGIKA PEMISAHAN 
+            rekam_eksisting = kamus_eksisting.get(wilayah.id_wilayah)
+            
+            if rekam_eksisting:
+                # UPDATE: Jika data jam ini sudah ada, timpa nilainya (Tidak perlu append ke list)
+                rekam_eksisting.id_data = data_terakhir.id_data
+                rekam_eksisting.nilai_ispu = hasil_ispu['skor_ispu_final']
+                rekam_eksisting.kategori_ispu = hasil_ispu['kategori_ispu']
+                rekam_eksisting.parameter_kritis = hasil_ispu['polutan_kritis']
+            else:
+                # INSERT: Jika belum ada sama sekali, buat objek baru dan masukkan ke list
+                catatan_ispu = IspuHistoris(
+                    id_wilayah=wilayah.id_wilayah,
+                    id_data=data_terakhir.id_data,
+                    waktu_kalkulasi=waktu_jam_ini, 
+                    nilai_ispu=hasil_ispu['skor_ispu_final'],
+                    kategori_ispu=hasil_ispu['kategori_ispu'],
+                    parameter_kritis=hasil_ispu['polutan_kritis']
+                )
+                ispu_aktual_baru.append(catatan_ispu)
             
         try:
-            if ispu_aktual_massal:
-                db.session.bulk_save_objects(ispu_aktual_massal)
-                db.session.commit()
-                print(f"   [+] Berhasil menyimpan {len(ispu_aktual_massal)} data ISPU Aktual ke Supabase.")
+            # Simpan HANYA yang baru ke database
+            if ispu_aktual_baru:
+                db.session.bulk_save_objects(ispu_aktual_baru)
+            
+            # Commit akan menyimpan bulk_save (INSERT) dan perubahan rekam_eksisting (UPDATE) sekaligus
+            db.session.commit()
+            print(f"  [+] Berhasil menyimpan/memperbarui data ISPU Aktual ke Supabase.")
         except Exception as e:
             db.session.rollback()
-            print(f"   [!] Gagal menyimpan data ISPU Aktual: {e}")
+            print(f"  [!] Gagal menyimpan data ISPU Aktual: {e}")
 
 # ==============================================================================
 # MASTER SIKLUS (PIPELINE)

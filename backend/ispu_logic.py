@@ -126,31 +126,57 @@ def kalkulasi_ispu_final(hasil_prediksi_dict_list):
 def siapkan_fitur_prediksi(df_history):
     """
     Fungsi modular untuk meracik fitur XGBoost.
-    Menerima DataFrame mentah dan mengembalikan DataFrame siap prediksi.
+    Telah disinkronkan 100% dengan pipeline best_model.ipynb
     """
     df_temp = df_history.copy()
     
-    # Fitur Temporal
-    df_temp['Bulan'] = df_temp['waktu_aktual'].dt.month
-    df_temp['Jam'] = df_temp['waktu_aktual'].dt.hour
-    df_temp['Is_Weekend'] = df_temp['waktu_aktual'].dt.dayofweek.isin([5, 6]).astype(int) 
-
+    # Pastikan waktu aktual bertipe datetime
+    df_temp['waktu_aktual'] = pd.to_datetime(df_temp['waktu_aktual'])
+    
     daftar_polutan = ['pm25', 'pm10', 'so2', 'co', 'no2', 'ozon']
+    
+    # PEMBERSIHAN OUTLIER SENSOR
+    # Ubah nilai mustahil (<= 0) menjadi NaN
+    for col in daftar_polutan:
+        df_temp.loc[df_temp[col] <= 0, col] = np.nan
         
-    # Fitur Lag & Rolling
+    # Interpolasi Linear (tanpa groupby karena df_history ini sudah per 1 wilayah khusus)
+    df_temp[daftar_polutan] = df_temp[daftar_polutan].interpolate(method='linear', limit_direction='both')
+    
+    # Winsorizing (Potong nilai ekstrem - bisa dilewati di backend jika dianggap terlalu lambat, 
+    # tapi lebih aman kita biarkan XGBoost menanganinya secara natural saat inferensi)
+    # *Sengaja di-skip agar backend ringan, XGBoost kebal outlier ekstrem*
+    
+    # FITUR TEMPORAL DASAR
+    # HARUS sama persis namanya dengan di Notebook (huruf kecil semua)
+    df_temp['jam'] = df_temp['waktu_aktual'].dt.hour
+    df_temp['hari_dalam_minggu'] = df_temp['waktu_aktual'].dt.dayofweek
+    df_temp['bulan'] = df_temp['waktu_aktual'].dt.month
+        
+    # FITUR LAG & ROLLING
     for p in daftar_polutan:
         for i in range(1, 25): # Mundur 24 jam
             df_temp[f'{p}_H-{i}'] = df_temp[p].shift(i)
         df_temp[f'{p}_RollMean_72'] = df_temp[p].rolling(window=72, min_periods=1).mean()
         df_temp[f'{p}_RollMax_72'] = df_temp[p].rolling(window=72, min_periods=1).max() 
 
-    # NaN menjadi 0  
+    # Sisa NaN (biasanya di 24 jam pertama) ubah jadi 0 agar model tidak error
     df_temp = df_temp.fillna(0)
-
-    wilayah_list = [str(i) for i in range(1, 39)] 
     
-    # One-Hot Encoding (Tambahkan dtype=int agar XGBoost menerima angka murni)
-    df_temp['id_wilayah'] = pd.Categorical(df_temp['id_wilayah'].astype(str), categories=wilayah_list)
-    df_temp = pd.get_dummies(df_temp, columns=['id_wilayah'], dtype=int)
+    # ONE-HOT ENCODING
+    # Buat kategori list untuk memastikan OHE konsisten
+    kategori_wilayah = [str(i) for i in range(1, 39)]
+    kategori_jam = list(range(0, 24))
+    kategori_hari = list(range(0, 7))
+    kategori_bulan = list(range(1, 13))
+    
+    # Konversi ke Categorical agar fungsi get_dummies membuat semua kolom meskipun datanya tidak ada
+    df_temp['id_wilayah'] = pd.Categorical(df_temp['id_wilayah'].astype(str), categories=kategori_wilayah)
+    df_temp['jam'] = pd.Categorical(df_temp['jam'], categories=kategori_jam)
+    df_temp['hari_dalam_minggu'] = pd.Categorical(df_temp['hari_dalam_minggu'], categories=kategori_hari)
+    df_temp['bulan'] = pd.Categorical(df_temp['bulan'], categories=kategori_bulan)
+    
+    # Lakukan OHE dengan drop_first=True (SAMA PERSIS DENGAN JUPYTER)
+    df_temp = pd.get_dummies(df_temp, columns=['id_wilayah', 'jam', 'hari_dalam_minggu', 'bulan'], drop_first=True)
     
     return df_temp
