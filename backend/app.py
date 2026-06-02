@@ -220,17 +220,26 @@ def get_ispu_rolling_24h():
             h_co   = [h.co for h in h_list];   p_co   = [p.pred_co for p in p_list]
             h_no2  = [h.no2 for h in h_list];  p_no2  = [p.pred_no2 for p in p_list]
             h_o3   = [h.ozon for h in h_list]; p_o3   = [p.pred_ozon for p in p_list]
-            
+
+            # Fungsi untuk membuat array menjadi 24
+            def pad_to_24(arr):
+                if not arr: return [0.0] * 24
+                if len(arr) < 24:
+                    # Copy data tertua untuk menambal masa lalu yang kosong
+                    return [arr[0]] * (24 - len(arr)) + arr
+                return arr
+
             # --- 2. SUNTIKAN DATA RIIL (0h / JAM INI) SEBAGAI AWALAN ---
             if h_list:
                 riil_terakhir = h_list[-1]
                 waktu_0h_utc = pytz.UTC.localize(riil_terakhir.waktu_aktual)
                 waktu_0h_wib = waktu_0h_utc.astimezone(TZ_WIB)
                 
+                # Gunakan fungsi pad_to_24 agar 0h tidak menghasilkan ISPU = 0
                 dict_polutan_0h = {
-                    'PM25': h_pm25, 'PM10': h_pm10, 
-                    'CO': h_co, 'NO2': h_no2, 
-                    'O3': h_o3, 'SO2': h_so2
+                    'PM25': pad_to_24(h_pm25), 'PM10': pad_to_24(h_pm10), 
+                    'CO': pad_to_24(h_co), 'NO2': pad_to_24(h_no2), 
+                    'O3': pad_to_24(h_o3), 'SO2': pad_to_24(h_so2)
                 }
                 
                 ispu_0h = kalkulasi_ispu_final(dict_polutan_0h)
@@ -250,7 +259,6 @@ def get_ispu_rolling_24h():
                     "ispu_no2": ispu_0h.get('skor_no2', 0),
                     "ispu_o3": ispu_0h.get('skor_o3', 0),
 
-                    # Data raw tooltip menggunakan nilai riil dari sensor
                     "pm25": riil_terakhir.pm25,
                     "pm10": riil_terakhir.pm10, 
                     "co": riil_terakhir.co,
@@ -258,7 +266,6 @@ def get_ispu_rolling_24h():
                     "o3": riil_terakhir.ozon,
                     "so2": riil_terakhir.so2
                 })
-            # -----------------------------------------------------------
 
             # --- 3. LOOPING PREDIKSI (+1 JAM s/d +24 JAM) ---
             for i, pred in enumerate(p_list):
@@ -268,7 +275,6 @@ def get_ispu_rolling_24h():
                 selisih_jam = int((waktu_target_wib - sekarang_wib).total_seconds() / 3600)
                 hari_str = "Hari Ini" if waktu_target_wib.date() == sekarang_wib.date() else "Besok"
                 
-                # Menjahit Array: (Sisa Masa Lalu) + (Tebakan Masa Depan sampai jam ke-i)
                 potong_historis = 23 - i 
                 
                 gabung_pm25 = (h_pm25[-potong_historis:] if potong_historis > 0 else []) + p_pm25[:i+1]
@@ -278,10 +284,11 @@ def get_ispu_rolling_24h():
                 gabung_no2  = (h_no2[-potong_historis:] if potong_historis > 0 else []) + p_no2[:i+1]
                 gabung_o3   = (h_o3[-potong_historis:] if potong_historis > 0 else []) + p_o3[:i+1]
 
+                # Gunakan fungsi pad_to_24 di sini juga
                 dict_polutan_24h = {
-                    'PM25': gabung_pm25, 'PM10': gabung_pm10, 
-                    'CO': gabung_co, 'NO2': gabung_no2, 
-                    'O3': gabung_o3, 'SO2': gabung_so2
+                    'PM25': pad_to_24(gabung_pm25), 'PM10': pad_to_24(gabung_pm10), 
+                    'CO': pad_to_24(gabung_co), 'NO2': pad_to_24(gabung_no2), 
+                    'O3': pad_to_24(gabung_o3), 'SO2': pad_to_24(gabung_so2)
                 }
                 
                 ispu_calc = kalkulasi_ispu_final(dict_polutan_24h)
@@ -301,7 +308,6 @@ def get_ispu_rolling_24h():
                     "ispu_no2": ispu_calc.get('skor_no2', 0),
                     "ispu_o3": ispu_calc.get('skor_o3', 0),
 
-                    # Data raw tooltip menggunakan tebakan AI
                     "pm25": pred.pred_pm25,
                     "pm10": pred.pred_pm10, 
                     "co": pred.pred_co,
