@@ -1,27 +1,19 @@
 services:
   # CONTAINER 1: Pelayan API (Backend Utama)
   api_prediksi_ispu:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
+    image: bejochan/web-prediksi-ispu:latest
     container_name: backend_api_ispu
     ports:
       - "5000:5000"
-    volumes:
-      - ./backend:/app
     env_file:
       - .env
     restart: unless-stopped
 
   # CONTAINER 2: Pekerja Keras (Scheduler)
   scheduler_prediksi_ispu:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
+    image: bejochan/web-prediksi-ispu:latest
     container_name: scheduler_api_ispu
     command: python scheduler.py
-    volumes:
-      - ./backend:/app
     env_file:
       - .env
     restart: unless-stopped
