@@ -9,7 +9,6 @@ services:
       - "5000:5000"
     volumes:
       - ./backend:/app
-    # Menunjuk langsung ke file .env di folder utama proyek
     env_file:
       - .env
     restart: unless-stopped
@@ -23,7 +22,6 @@ services:
     command: python scheduler.py
     volumes:
       - ./backend:/app
-    # Menunjuk langsung ke file .env di folder utama proyek
     env_file:
       - .env
     restart: unless-stopped
