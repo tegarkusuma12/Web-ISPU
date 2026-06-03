@@ -1,0 +1,29 @@
+# Mengabaikan virtual environment lokal
+venv/
+.venv/
+env/
+ENV/
+
+# Mengabaikan dataset besar yang tidak diperlukan di production
+dataset_polutan_jatim.csv
+
+# Mengabaikan file cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Mengabaikan file konfigurasi sensitif (keamanan database)
+.env
+*.env
+
+# Mengabaikan log
+*.log
+logs/
+
+# Mengabaikan file editor & sistem
+.vscode/
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
