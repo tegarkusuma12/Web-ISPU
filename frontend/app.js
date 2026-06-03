@@ -78,7 +78,8 @@ function getErrorColorClass(pollutant, value) {
 // ==========================================
 async function loadModelPerformance() {
     try {
-        const response = await fetch('http://127.0.0.1:5000/api/model/performance');
+        // Subdomain admin 
+        const response = await fetch('http://lolosmigrain.cronous.my.id/api/model/performance');
         const result = await response.json();
         
         const r2El = document.getElementById('model-r2-val');
@@ -148,7 +149,7 @@ async function loadDashboard() {
         loadModelPerformance();
 
         // PHASE 1: Initial Fast Load (GET /api/ispu/sekarang)
-        const sekarangResponse = await fetch('http://127.0.0.1:5000/api/ispu/sekarang');
+        const sekarangResponse = await fetch('http://lolosmigrain.cronous.my.id/api/ispu/sekarang');
         const sekarangResult = await sekarangResponse.json();
         
         currentIspuData = sekarangResult.data || [];
@@ -163,7 +164,7 @@ async function loadDashboard() {
         refreshUI();
         
         // PHASE 2: Background Asynchronous Fetch (GET /api/ispu/rolling_24h)
-        fetch('http://127.0.0.1:5000/api/ispu/rolling_24h')
+        fetch('http://lolosmigrain.cronous.my.id/api/ispu/rolling_24h')
             .then(res => res.json())
             .then(rollingResult => {
                 // PHASE 3: Ready State (Handoff)
@@ -729,7 +730,7 @@ async function fetchIspuData(kota, jumlahHari) {
         const urlSafeKota = encodeURIComponent(kota);
         
         // Tarik data historis dari Backend
-        const response = await fetch(`http://127.0.0.1:5000/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
+        const response = await fetch(`http://lolosmigrain.cronous.my.id/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
         if (!response.ok) throw new Error("Data grafik belum tersedia.");
 
         const result = await response.json();
