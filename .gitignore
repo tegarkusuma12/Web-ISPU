@@ -5,6 +5,7 @@ env/
 
 # ml runs
 data_training/mlruns/
+data_training/dataset_polutan_jatim.csv
 
 # Mengabaikan model lokal karena sudah diurus MLflow DagsHub
 # *.pkl
