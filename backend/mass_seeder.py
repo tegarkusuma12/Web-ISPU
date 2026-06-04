@@ -88,7 +88,7 @@ def mass_insert_data(csv_path):
                         waktu_aktual, id_wilayah, pm25, pm10, so2, co, no2, ozon
                     )
                     SELECT 
-                        CAST(waktu_aktual AS TIMESTAMP WITH TIME ZONE), 
+                        CAST(waktu_aktual || ' +07:00' AS TIMESTAMP WITH TIME ZONE),
                         id_wilayah, pm25, pm10, so2, co, no2, ozon
                     FROM temp_staging_historis
                     ON CONFLICT (id_wilayah, waktu_aktual) 

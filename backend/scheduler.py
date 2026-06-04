@@ -243,7 +243,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
                         pred_eksisting.pred_no2 = val_no2
                         pred_eksisting.pred_ozon = val_ozon
                         pred_eksisting.status = "PENDING"
-                        pred_eksisting.waktu_dibuat = datetime.now(pytz.UTC)
+                        pred_eksisting.waktu_dibuat = datetime.utcnow()
                     else:
                         prediksi_baru = Predictions(
                             id_model=model_aktif.id_model, id_wilayah=wilayah.id_wilayah,
@@ -342,14 +342,15 @@ def hitung_ispu_aktual_per_jam(waktu_jam_ini):
 # ==============================================================================
 def siklus_utama_per_jam():
     sekarang = datetime.now(TZ_WIB)
-    waktu_jam_ini = sekarang.replace(minute=0, second=0, microsecond=0)
+    waktu_jam_ini_wib = sekarang.replace(minute=0, second=0, microsecond=0)
+    waktu_jam_ini_utc = waktu_jam_ini_wib.astimezone(pytz.UTC).replace(tzinfo=None)
     
     print(f"\n[{sekarang.strftime('%Y-%m-%d %H:%M:%S')}] === MEMULAI SIKLUS UTAMA ===")
     
-    tarik_data_per_jam(waktu_jam_ini)           
-    evaluasi_akurasi_per_jam(waktu_jam_ini)     
-    eksekusi_prediksi_rolling(waktu_jam_ini)    
-    hitung_ispu_aktual_per_jam(waktu_jam_ini)   
+    tarik_data_per_jam(waktu_jam_ini_utc)           
+    evaluasi_akurasi_per_jam(waktu_jam_ini_utc)     
+    eksekusi_prediksi_rolling(waktu_jam_ini_utc)    
+    hitung_ispu_aktual_per_jam(waktu_jam_ini_utc)   
     
     print(f"[{datetime.now(TZ_WIB).strftime('%Y-%m-%d %H:%M:%S')}] === SIKLUS SELESAI ===\n")
 
