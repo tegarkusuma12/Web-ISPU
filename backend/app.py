@@ -50,6 +50,9 @@ class WilayahDetails(db.Model):
     data_historis = db.relationship('DataHistoris', backref='wilayah', lazy=True)
     prediksi = db.relationship('Predictions', backref='wilayah', lazy=True)
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
 class ModelRegistry(db.Model):
     __tablename__ = 'model_registry'
     id_model = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -60,6 +63,9 @@ class ModelRegistry(db.Model):
     is_active = db.Column(db.Boolean, default=False)
     
     prediksi = db.relationship('Predictions', backref='model', lazy=True)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 class DataHistoris(db.Model):
     __tablename__ = 'data_historis'
@@ -73,6 +79,9 @@ class DataHistoris(db.Model):
     no2 = db.Column(db.Float)
     ozon = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 class Predictions(db.Model):
     __tablename__ = 'predictions'
@@ -90,6 +99,9 @@ class Predictions(db.Model):
     status = db.Column(db.String(50), default='PENDING')    
     validasi = db.relationship('ValidationsLogs', backref='prediksi_sumber', uselist=False)
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
 class ValidationsLogs(db.Model):
     __tablename__ = 'validations_logs'
     id_validasi = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -103,6 +115,9 @@ class ValidationsLogs(db.Model):
     err_ozon = db.Column(db.Float)
     validated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
 class IspuHistoris(db.Model):
     __tablename__ = 'ispu_historis'
     id_ispu = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -113,6 +128,9 @@ class IspuHistoris(db.Model):
     kategori_ispu = db.Column(db.String(50), nullable=False)
     parameter_kritis = db.Column(db.String(10), nullable=False)
     waktu_kalkulasi = db.Column(db.DateTime, nullable=False)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 # ==========================================
 # ENDPOINT API (Untuk Frontend)
@@ -563,6 +581,6 @@ def get_model_performance():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        print("✅ Semua tabel proyek prediksi ISPU berhasil dicetak di Supabase!")
+        print("[OK] Semua tabel proyek prediksi ISPU berhasil dicetak di Supabase!")
     
     app.run(debug=True, host='0.0.0.0', port=5000)

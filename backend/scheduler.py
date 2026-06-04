@@ -25,15 +25,15 @@ if os.path.exists(MODEL_PATH):
     paket_model = joblib.load(MODEL_PATH)
     dict_model_spesialis = paket_model['dict_model_spesialis']
     fitur_model = paket_model['fitur']
-    print(f"✅ Model ML berhasil dimuat dari {MODEL_PATH}")
+    print(f"[OK] Model ML berhasil dimuat dari {MODEL_PATH}")
 else:
-    print(f"⚠️ Peringatan: File model {MODEL_PATH} tidak ditemukan!")
+    print(f"[WARN] Peringatan: File model {MODEL_PATH} tidak ditemukan!")
 
 # ==============================================================================
 # LANGKAH 1: TARIK DATA RIIL (Dengan Retry Mechanism)
 # ==============================================================================
 def tarik_data_per_jam(waktu_jam_ini):
-    print(f" 🔹 [1/4] Menarik data riil terbaru...")
+    print(f" * [1/4] Menarik data riil terbaru...")
     with app.app_context():
         daftar_wilayah = WilayahDetails.query.all()
         for wilayah in daftar_wilayah:
@@ -70,7 +70,7 @@ def tarik_data_per_jam(waktu_jam_ini):
 # LANGKAH 2: AUDIT AKURASI AI 
 # ==============================================================================
 def evaluasi_akurasi_per_jam(waktu_jam_ini):
-    print(f" 🔹 [2/4] Mengevaluasi akurasi prediksi jam ini...")
+    print(f" * [2/4] Mengevaluasi akurasi prediksi jam ini...")
     with app.app_context():
         daftar_wilayah = WilayahDetails.query.all()
         for wilayah in daftar_wilayah:
@@ -104,12 +104,12 @@ def evaluasi_akurasi_per_jam(waktu_jam_ini):
 # LANGKAH 3: PREDIKSI POLUTAN
 # ==============================================================================
 def eksekusi_prediksi_rolling(waktu_jam_ini):
-    print(f" 🔹 [3/4] Menjalankan prediksi Rolling Horizon 24 Jam...")
+    print(f" * [3/4] Menjalankan prediksi Rolling Horizon 24 Jam...")
     with app.app_context():
         model_aktif = ModelRegistry.query.filter_by(is_active=True).first()
         
         if not model_aktif:
-            print(f" 💡 [Database Info] Mendaftarkan model otomatis...")
+            print(f" [INFO] [Database Info] Mendaftarkan model otomatis...")
             model_aktif = ModelRegistry(
                 algoritma='XGBoost Multi-Output Optuna', 
                 versi_model='v1.0',
@@ -118,7 +118,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
             )
             db.session.add(model_aktif)
             db.session.commit()
-            print(f" ✅ Model terdaftar dengan ID: {model_aktif.id_model}")
+            print(f" [OK] Model terdaftar dengan ID: {model_aktif.id_model}")
         
         daftar_wilayah = WilayahDetails.query.all()
         prediksi_baru_massal = []
@@ -270,7 +270,7 @@ def eksekusi_prediksi_rolling(waktu_jam_ini):
 # LANGKAH 4: HITUNG ISPU AKTUAL (Dari Data Riil)
 # ==============================================================================
 def hitung_ispu_aktual_per_jam(waktu_jam_ini):
-    print(f" 🔹 [4/4] Menghitung ISPU Aktual dari Data Riil...")
+    print(f" * [4/4] Menghitung ISPU Aktual dari Data Riil...")
     with app.app_context():
         daftar_wilayah = WilayahDetails.query.all()
         
