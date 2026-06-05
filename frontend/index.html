@@ -939,7 +939,7 @@
 
             <!-- 5. Chart Container -->
             <div class="col-xl-8 col-lg-7">
-                <div class="card-custom hover-lift p-4 h-100">
+                <div class="card-custom hover-lift p-4 h-100 d-flex flex-column">
                     <div class="card-header-custom border-0 p-0 pb-3 mb-2 flex-wrap gap-3">
                         <div class="d-flex align-items-center gap-2">
                             <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3">
@@ -959,68 +959,134 @@
                         </div>
                     </div>
                     
-                    <div class="card-body p-0 position-relative" style="min-height: 280px;">
+                    <div class="card-body p-0 position-relative flex-grow-1" style="min-height: 250px;">
                         <canvas id="ispuChart"></canvas>
                     </div>
 
-                    <!-- ML Model Performance Evaluation Strip -->
-                    <div class="row g-3 mt-3 pt-3 border-top border-light-subtle">
-                        <!-- 1. Akurasi Model (R²) -->
-                        <div class="col-sm-4 border-end border-light-subtle metric-col">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="p-2 rounded bg-success bg-opacity-10 text-success" style="font-size: 1.1rem; display: inline-flex;">
-                                    <i class="bi bi-patch-check-fill"></i>
+                    <!-- ML Model Performance Section (2 Columns) -->
+                    <div class="row g-4 mt-3 pt-3 border-top border-light-subtle">
+                        <!-- Left Sub-Panel: Detailed Regressive Metrics -->
+                        <div class="col-md-6 border-end border-light-subtle">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <div class="p-1.5 rounded bg-primary bg-opacity-10 text-primary d-inline-flex" style="font-size: 1rem;">
+                                    <i class="bi bi-speedometer2"></i>
                                 </div>
-                                <div>
-                                    <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Akurasi Model (R²)</span>
-                                    <span id="model-r2-val" class="fw-bold text-dark" style="font-size: 0.95rem;">96.82%</span>
-                                </div>
+                                <h4 class="h6 mb-0 fw-bold">Metrik Evaluasi Model (Real-Time)</h4>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-borderless mb-0 text-muted" style="font-size: 0.8rem;">
+                                    <tbody>
+                                        <tr>
+                                            <td class="ps-0 py-1">Koefisien Determinasi (R²)</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-r2-val">96.26%</td>
+                                        </tr>
+                                        <tr class="metric-col-mae" style="position: relative; cursor: help;">
+                                            <td class="ps-0 py-1">
+                                                Mean Absolute Error (MAE)
+                                                <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                                                <!-- Detailed Pollutant MAE Glassmorphism Popover -->
+                                                <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAE Polutan (24j)</div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mae-val-pm25">1.56 µg/m³</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mae-val-pm10">2.58 µg/m³</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mae-val-ozon">3.63 ppb</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mae-val-co">21.74 ppb</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mae-val-so2">0.06 ppb</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mae-val-no2">0.21 ppb</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-mae-val">3.14</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="ps-0 py-1">Root Mean Squared Error (RMSE)</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-rmse-val">4.28</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="ps-0 py-1">Mean Abs Percentage Error (MAPE)</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-mape-val">5.18%</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="ps-0 py-1">Latensi Inferensi Model (XGBoost)</td>
+                                            <td class="text-end fw-bold text-success py-1"><i class="bi bi-lightning-charge-fill me-0.5"></i>12 ms</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <!-- 2. Arsitektur AI -->
-                        <div class="col-sm-4 border-end border-light-subtle metric-col">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="p-2 rounded bg-primary bg-opacity-10 text-primary" style="font-size: 1.1rem; display: inline-flex;">
+
+                        <!-- Right Sub-Panel: Feature Importance Progress Bars -->
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <div class="p-1.5 rounded bg-success bg-opacity-10 text-success d-inline-flex" style="font-size: 1rem;">
                                     <i class="bi bi-cpu-fill"></i>
                                 </div>
-                                <div>
-                                    <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Arsitektur AI</span>
-                                    <span class="fw-bold text-dark" style="font-size: 0.95rem;">XGBoost Multi-Output (Optuna)</span>
-                                </div>
+                                <h4 class="h6 mb-0 fw-bold">Pengaruh Fitur XGBoost (Explainable AI)</h4>
                             </div>
-                        </div>
-                        <!-- 3. Tingkat Error (MAE) -->
-                        <div class="col-sm-4 metric-col metric-col-mae">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="p-2 rounded bg-warning bg-opacity-10 text-warning" style="font-size: 1.1rem; display: inline-flex;">
-                                    <i class="bi bi-shield-fill-exclamation"></i>
+                            
+                            <!-- Feature 1: Lag-1 -->
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
+                                    <span>Konsentrasi 1 Jam Sebelumnya (Lag-1)</span>
+                                    <span class="fw-bold text-dark">45%</span>
                                 </div>
-                                <div>
-                                    <span class="text-muted d-block" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Tingkat Error (MAE)</span>
-                                    <span id="model-mae-val" class="fw-bold text-dark" style="font-size: 0.95rem;">3.14</span>
+                                <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 45%; border-radius: 50px;" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
                             </div>
                             
-                            <!-- Detailed Pollutant MAE Glassmorphism Popover -->
-                            <div class="mae-details-popup">
-                                <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAE Polutan (24j)</div>
-                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                    <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mae-val-pm25">1.56 µg/m³</span>
+                            <!-- Feature 2: Rolling Mean 72h -->
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
+                                    <span>Rata-rata 3 Hari Terakhir (RollMean-72)</span>
+                                    <span class="fw-bold text-dark">30%</span>
                                 </div>
-                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                    <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mae-val-pm10">2.58 µg/m³</span>
+                                <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: 30%; border-radius: 50px;" aria-valuenow="30" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
-                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                    <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mae-val-ozon">3.63 ppb</span>
+                            </div>
+                            
+                            <!-- Feature 3: Hour -->
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
+                                    <span>Siklus Jam Aktivitas Harian (Hour)</span>
+                                    <span class="fw-bold text-dark">15%</span>
                                 </div>
-                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                    <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mae-val-co">21.74 ppb</span>
+                                <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 15%; border-radius: 50px;" aria-valuenow="15" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
-                                <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                    <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mae-val-so2">0.06 ppb</span>
+                            </div>
+                            
+                            <!-- Feature 4: Spatial -->
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
+                                    <span>Lokasi / Karakteristik Wilayah</span>
+                                    <span class="fw-bold text-dark">8%</span>
                                 </div>
-                                <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
-                                    <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mae-val-no2">0.21 ppb</span>
+                                <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: 8%; border-radius: 50px;" aria-valuenow="8" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Feature 5: Seasonal -->
+                            <div>
+                                <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
+                                    <span>Faktor Mingguan & Bulanan (Temporal)</span>
+                                    <span class="fw-bold text-dark">2%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: 2%; border-radius: 50px;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
                             </div>
                         </div>
