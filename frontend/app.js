@@ -13,6 +13,7 @@ let geoJsonLayer = null; // Penampung layer warna peta agar bisa dihapus & digam
 let jatimGeoJSON = null; // Penampung file jatim.json agar tidak perlu didownload berulang kali
 let currentIspuData = []; // Menampung data aktual instant-load dari GET /api/ispu/sekarang (Phase 1)
 let isTimelineReady = false; // Flag penanda apakah data timeline prediksi asinkron sudah siap (Phase 3)
+let isCitySelected = false; // Flag to track if the user has selected a city (to keep Choose City / Regency... placeholder until then)
 
 // ==========================================
 // FUNGSI UTILITAS UI
@@ -407,7 +408,7 @@ function populateSearch(data) {
     const selectEl = document.getElementById('city-search');
     if (!selectEl) return;
     
-    selectEl.innerHTML = '<option value="" disabled selected>Select City / Regency...</option>'; 
+    selectEl.innerHTML = '<option value="" disabled selected>Choose City / Regency...</option>'; 
     
     data.forEach(item => {
         const option = document.createElement('option');
@@ -415,6 +416,12 @@ function populateSearch(data) {
         option.innerText = item.kota;
         selectEl.appendChild(option);
     });
+
+    if (isCitySelected) {
+        selectEl.value = kotaAktif;
+    } else {
+        selectEl.value = "";
+    }
 
     selectEl.addEventListener('change', (e) => {
         const selected = e.target.value;
@@ -544,9 +551,17 @@ function updateLeaderboard() {
 function pilihKota(kota, scrollAndFetchGraph = true) {
     kotaAktif = kota;
     
+    if (scrollAndFetchGraph) {
+        isCitySelected = true;
+    }
+    
     const searchInput = document.getElementById('city-search');
     if (searchInput) {
-        searchInput.value = kota;
+        if (isCitySelected) {
+            searchInput.value = kota;
+        } else {
+            searchInput.value = "";
+        }
     }
     
     const selectedCityTitleEl = document.getElementById('selectedCityTitle');
@@ -556,7 +571,7 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     const statusCardEl = document.getElementById('statusCard');
     const sourceBadgeEl = document.getElementById('ispu-source-badge'); // New dynamic badge!
 
-    if (selectedCityTitleEl) selectedCityTitleEl.innerText = `Region Details: ${kota}`;
+    if (selectedCityTitleEl) selectedCityTitleEl.innerText = kota;
     if (ispuValueEl) ispuValueEl.innerText = "...";
     if (ispuStatusEl) ispuStatusEl.innerText = "...";
     if (kritisValueEl) kritisValueEl.innerText = "...";
