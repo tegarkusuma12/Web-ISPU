@@ -420,7 +420,7 @@ function populateSearch(data) {
         
         if (kotaCocok) {
             pilihKota(kotaCocok.kota, true); // true = scroll & load grafik
-            searchInput.value = ''; 
+            searchInput.value = kotaCocok.kota; 
             searchInput.blur(); 
         }
     });
@@ -545,6 +545,11 @@ function updateLeaderboard() {
 // ==========================================
 function pilihKota(kota, scrollAndFetchGraph = true) {
     kotaAktif = kota;
+    
+    const searchInput = document.getElementById('city-search');
+    if (searchInput) {
+        searchInput.value = kota;
+    }
     
     const selectedCityTitleEl = document.getElementById('selectedCityTitle');
     const ispuValueEl = document.getElementById('ispuValue');
