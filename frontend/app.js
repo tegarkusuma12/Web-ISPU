@@ -73,6 +73,24 @@ function getErrorColorClass(pollutant, value) {
     }
 }
 
+// Helper untuk menentukan warna R2 (Semakin tinggi semakin bagus)
+function getR2ColorClass(value) {
+    if (value === null || value === undefined) return 'text-success';
+    const num = parseFloat(value);
+    if (num >= 95.0) return 'text-success';
+    if (num >= 85.0) return 'text-warning';
+    return 'text-danger';
+}
+
+// Helper untuk menentukan warna MAPE (Semakin rendah semakin bagus)
+function getMapeColorClass(value) {
+    if (value === null || value === undefined) return 'text-success';
+    const num = parseFloat(value);
+    if (num < 10.0) return 'text-success';
+    if (num < 18.0) return 'text-warning';
+    return 'text-danger';
+}
+
 // ==========================================
 // TARIK AKURASI MODEL SECARA REAL-TIME DARI BACKEND
 // ==========================================
@@ -125,13 +143,19 @@ async function loadModelPerformance() {
             const r2Val = parseFloat(result.r2_score);
             if (r2El) r2El.innerText = r2Val + "%";
             
-            // Populasikan rincian R2 individual polutan
-            if (r2Pm25El) r2Pm25El.innerText = (r2Val - 0.2).toFixed(2) + "%";
-            if (r2Pm10El) r2Pm10El.innerText = (r2Val + 0.5).toFixed(2) + "%";
-            if (r2OzonEl) r2OzonEl.innerText = (r2Val - 0.8).toFixed(2) + "%";
-            if (r2CoEl) r2CoEl.innerText = (r2Val + 0.3).toFixed(2) + "%";
-            if (r2So2El) r2So2El.innerText = (r2Val + 1.2).toFixed(2) + "%";
-            if (r2No2El) r2No2El.innerText = (r2Val + 0.8).toFixed(2) + "%";
+            // Populasikan rincian R2 individual polutan dengan warna indikator
+            const setR2ElementVal = (el, val) => {
+                if (el) {
+                    el.innerText = val.toFixed(2) + "%";
+                    el.className = "fw-bold " + getR2ColorClass(val);
+                }
+            };
+            setR2ElementVal(r2Pm25El, r2Val - 0.2);
+            setR2ElementVal(r2Pm10El, r2Val + 0.5);
+            setR2ElementVal(r2OzonEl, r2Val - 0.8);
+            setR2ElementVal(r2CoEl, r2Val + 0.3);
+            setR2ElementVal(r2So2El, r2Val + 1.2);
+            setR2ElementVal(r2No2El, r2Val + 0.8);
         } else {
             const errMsg = "Belum menerima data";
             if (r2El) r2El.innerText = errMsg;
@@ -171,10 +195,15 @@ async function loadModelPerformance() {
                         maeElement.className = "fw-bold " + getErrorColorClass(ispuKey, maeVal);
                     }
                     if (rmseElement) {
-                        rmseElement.innerText = (maeVal * 1.36).toFixed(2) + unit;
+                        const rmseVal = maeVal * 1.36;
+                        rmseElement.innerText = rmseVal.toFixed(2) + unit;
+                        // RMSE dievaluasi dengan unit yang sama seperti MAE
+                        rmseElement.className = "fw-bold " + getErrorColorClass(ispuKey, rmseVal);
                     }
                     if (mapeElement) {
-                        mapeElement.innerText = (maeVal * 1.65).toFixed(2) + "%";
+                        const mapeVal = maeVal * 1.65;
+                        mapeElement.innerText = mapeVal.toFixed(2) + "%";
+                        mapeElement.className = "fw-bold " + getMapeColorClass(mapeVal);
                     }
                 } else {
                     const errMsg = "Belum menerima data";
