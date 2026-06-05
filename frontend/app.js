@@ -404,24 +404,22 @@ function updateSliderLabel() {
 // SMART SEARCH BAR
 // ==========================================
 function populateSearch(data) {
-    const datalist = document.getElementById('daftar-kota');
-    datalist.innerHTML = ''; 
+    const selectEl = document.getElementById('city-search');
+    if (!selectEl) return;
+    
+    selectEl.innerHTML = '<option value="" disabled selected>Select City / Regency...</option>'; 
     
     data.forEach(item => {
         const option = document.createElement('option');
         option.value = item.kota;
-        datalist.appendChild(option);
+        option.innerText = item.kota;
+        selectEl.appendChild(option);
     });
 
-    const searchInput = document.getElementById('city-search');
-    searchInput.addEventListener('input', (e) => {
+    selectEl.addEventListener('change', (e) => {
         const selected = e.target.value;
-        const kotaCocok = data.find(d => d.kota.toLowerCase() === selected.toLowerCase());
-        
-        if (kotaCocok) {
-            pilihKota(kotaCocok.kota, true); // true = scroll & load grafik
-            searchInput.value = kotaCocok.kota; 
-            searchInput.blur(); 
+        if (selected) {
+            pilihKota(selected, true); // true = scroll & load grafik
         }
     });
 }
