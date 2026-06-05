@@ -21,18 +21,18 @@ function translateCategory(kategori) {
     if (!kategori) return "";
     switch(kategori.toLowerCase().trim()) {
         case 'baik':
-        case 'good': return 'GOOD';
+        case 'good': return 'BAIK';
         case 'sedang':
-        case 'moderate': return 'MODERATE';
+        case 'moderate': return 'SEDANG';
         case 'tidak sehat':
-        case 'unhealthy': return 'UNHEALTHY';
+        case 'unhealthy': return 'TIDAK SEHAT';
         case 'sangat tidak sehat':
         case 'very unhealthy':
-        case 'v. unhealthy': return 'VERY UNHEALTHY';
+        case 'v. unhealthy': return 'SANGAT TIDAK SEHAT';
         case 'berbahaya':
-        case 'hazardous': return 'HAZARDOUS';
+        case 'hazardous': return 'BERBAHAYA';
         case 'menunggu data':
-        case 'waiting for data': return 'WAITING FOR DATA';
+        case 'waiting for data': return 'MENUNGGU DATA';
         default: return kategori.toUpperCase();
     }
 }
@@ -437,7 +437,7 @@ function updateLeaderboard() {
         currentData = currentIspuData.map(d => ({
             kota: d.kota,
             nilai_ispu: d.nilai_ispu || 0,
-            kategori: d.kategori || "Good"
+            kategori: d.kategori || "Baik"
         }));
     } else if (allCitiesData.length > 0) {
         // Once timeline predictions are fully ready (Phase 3), strictly read from rolling_24h timelines (0h - 24h)
@@ -446,7 +446,7 @@ function updateLeaderboard() {
             return {
                 kota: d.kota,
                 nilai_ispu: timeData ? timeData.nilai_ispu : 0,
-                kategori: timeData ? timeData.kategori : "Waiting for Data"
+                kategori: timeData ? timeData.kategori : "Menunggu Data"
             };
         });
     }
@@ -514,11 +514,11 @@ function updateLeaderboard() {
             const rataRata = Math.round(totalIspu / validData.length);
             kpiAvgValue.innerText = rataRata;
             
-            let avgKategori = "Good";
-            if (rataRata > 50) avgKategori = "Moderate";
-            if (rataRata > 100) avgKategori = "Unhealthy";
-            if (rataRata > 200) avgKategori = "Very Unhealthy";
-            if (rataRata > 300) avgKategori = "Hazardous";
+            let avgKategori = "Baik";
+            if (rataRata > 50) avgKategori = "Sedang";
+            if (rataRata > 100) avgKategori = "Tidak Sehat";
+            if (rataRata > 200) avgKategori = "Sangat Tidak Sehat";
+            if (rataRata > 300) avgKategori = "Berbahaya";
             kpiAvgValue.style.backgroundColor = getStatusColor(avgKategori);
         } else {
             kpiAvgValue.innerText = "--";
@@ -661,11 +661,11 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
             const nilaiIspuUtama = maxPollutant.value > 0 ? maxPollutant.value : (timeData.nilai_ispu || 0);
             
             // Determine health category dynamically based on the highest ISPU score
-            let kategoriUtama = "Good";
-            if (nilaiIspuUtama > 50) kategoriUtama = "Moderate";
-            if (nilaiIspuUtama > 100) kategoriUtama = "Unhealthy";
-            if (nilaiIspuUtama > 200) kategoriUtama = "Very Unhealthy";
-            if (nilaiIspuUtama > 300) kategoriUtama = "Hazardous";
+            let kategoriUtama = "Baik";
+            if (nilaiIspuUtama > 50) kategoriUtama = "Sedang";
+            if (nilaiIspuUtama > 100) kategoriUtama = "Tidak Sehat";
+            if (nilaiIspuUtama > 200) kategoriUtama = "Sangat Tidak Sehat";
+            if (nilaiIspuUtama > 300) kategoriUtama = "Berbahaya";
 
             if (ispuValueEl) ispuValueEl.innerText = nilaiIspuUtama;
             if (ispuStatusEl) ispuStatusEl.innerText = translateCategory(kategoriUtama);
