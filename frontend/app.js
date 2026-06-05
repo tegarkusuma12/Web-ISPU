@@ -77,77 +77,98 @@ function getErrorColorClass(pollutant, value) {
 // TARIK AKURASI MODEL SECARA REAL-TIME DARI BACKEND
 // ==========================================
 async function loadModelPerformance() {
+    const r2El = document.getElementById('model-r2-val');
+    const maeEl = document.getElementById('model-mae-val');
+    const rmseEl = document.getElementById('model-rmse-val');
+    const mapeEl = document.getElementById('model-mape-val');
+
+    const pm25El = document.getElementById('mae-val-pm25');
+    const pm10El = document.getElementById('mae-val-pm10');
+    const ozonEl = document.getElementById('mae-val-ozon');
+    const coEl = document.getElementById('mae-val-co');
+    const so2El = document.getElementById('mae-val-so2');
+    const no2El = document.getElementById('mae-val-no2');
+
     try {
         // Subdomain admin 
         const response = await fetch('https://lolosmigrain.cronous.my.id/api/model/performance');
+        if (!response.ok) throw new Error("Gagal mengambil respon API");
         const result = await response.json();
         
-        const r2El = document.getElementById('model-r2-val');
-        const maeEl = document.getElementById('model-mae-val');
-        const rmseEl = document.getElementById('model-rmse-val');
-        const mapeEl = document.getElementById('model-mape-val');
-        
-        if (r2El) {
-            r2El.innerText = (result.r2_score ? result.r2_score : "96.26") + "%";
+        if (result && result.r2_score !== undefined && result.r2_score !== null) {
+            if (r2El) r2El.innerText = result.r2_score + "%";
+        } else {
+            if (r2El) r2El.innerText = "Belum menerima data";
         }
-        if (maeEl) {
-            const maeVal = result.mae_score ? parseFloat(result.mae_score) : 3.14;
-            maeEl.innerText = maeVal;
-            
-            // Sinkronisasi RMSE dan MAPE secara dinamis berbasis MAE
-            if (rmseEl) {
-                rmseEl.innerText = (maeVal * 1.36).toFixed(2);
-            }
-            if (mapeEl) {
-                mapeEl.innerText = (maeVal * 1.65).toFixed(2) + "%";
-            }
+
+        if (result && result.mae_score !== undefined && result.mae_score !== null) {
+            const maeVal = parseFloat(result.mae_score);
+            if (maeEl) maeEl.innerText = maeVal;
+            if (rmseEl) rmseEl.innerText = (maeVal * 1.36).toFixed(2);
+            if (mapeEl) mapeEl.innerText = (maeVal * 1.65).toFixed(2) + "%";
+        } else {
+            if (maeEl) maeEl.innerText = "Belum menerima data";
+            if (rmseEl) rmseEl.innerText = "Belum menerima data";
+            if (mapeEl) mapeEl.innerText = "Belum menerima data";
         }
 
         // Map rincian error masing-masing polutan ke popup melayang secara dinamis
-        if (result.pollutants_mae) {
+        if (result && result.pollutants_mae) {
             const p = result.pollutants_mae;
-            const pm25El = document.getElementById('mae-val-pm25');
-            const pm10El = document.getElementById('mae-val-pm10');
-            const ozonEl = document.getElementById('mae-val-ozon');
-            const coEl = document.getElementById('mae-val-co');
-            const so2El = document.getElementById('mae-val-so2');
-            const no2El = document.getElementById('mae-val-no2');
 
             if (pm25El) {
-                const val = p["PM2.5"] !== undefined ? p["PM2.5"] : 1.56;
-                pm25El.innerText = val + " µg/m³";
-                pm25El.className = "fw-bold " + getErrorColorClass('PM2.5', val);
+                const val = p["PM2.5"];
+                pm25El.innerText = val !== undefined ? val + " µg/m³" : "Belum menerima data";
+                if (val !== undefined) pm25El.className = "fw-bold " + getErrorColorClass('PM2.5', val);
             }
             if (pm10El) {
-                const val = p["PM10"] !== undefined ? p["PM10"] : 2.58;
-                pm10El.innerText = val + " µg/m³";
-                pm10El.className = "fw-bold " + getErrorColorClass('PM10', val);
+                const val = p["PM10"];
+                pm10El.innerText = val !== undefined ? val + " µg/m³" : "Belum menerima data";
+                if (val !== undefined) pm10El.className = "fw-bold " + getErrorColorClass('PM10', val);
             }
             if (ozonEl) {
-                const val = p["O3"] !== undefined ? p["O3"] : 3.63;
-                ozonEl.innerText = val + " ppb";
-                ozonEl.className = "fw-bold " + getErrorColorClass('O3', val);
+                const val = p["O3"];
+                ozonEl.innerText = val !== undefined ? val + " ppb" : "Belum menerima data";
+                if (val !== undefined) ozonEl.className = "fw-bold " + getErrorColorClass('O3', val);
             }
             if (coEl) {
-                const val = p["CO"] !== undefined ? p["CO"] : 21.74;
-                coEl.innerText = val + " ppb";
-                coEl.className = "fw-bold " + getErrorColorClass('CO', val);
+                const val = p["CO"];
+                coEl.innerText = val !== undefined ? val + " ppb" : "Belum menerima data";
+                if (val !== undefined) coEl.className = "fw-bold " + getErrorColorClass('CO', val);
             }
             if (so2El) {
-                const val = p["SO2"] !== undefined ? p["SO2"] : 0.06;
-                so2El.innerText = val + " ppb";
-                so2El.className = "fw-bold " + getErrorColorClass('SO2', val);
+                const val = p["SO2"];
+                so2El.innerText = val !== undefined ? val + " ppb" : "Belum menerima data";
+                if (val !== undefined) so2El.className = "fw-bold " + getErrorColorClass('SO2', val);
             }
             if (no2El) {
-                const val = p["NO2"] !== undefined ? p["NO2"] : 0.21;
-                no2El.innerText = val + " ppb";
-                no2El.className = "fw-bold " + getErrorColorClass('NO2', val);
+                const val = p["NO2"];
+                no2El.innerText = val !== undefined ? val + " ppb" : "Belum menerima data";
+                if (val !== undefined) no2El.className = "fw-bold " + getErrorColorClass('NO2', val);
             }
+        } else {
+            if (pm25El) pm25El.innerText = "Belum menerima data";
+            if (pm10El) pm10El.innerText = "Belum menerima data";
+            if (ozonEl) ozonEl.innerText = "Belum menerima data";
+            if (coEl) coEl.innerText = "Belum menerima data";
+            if (so2El) so2El.innerText = "Belum menerima data";
+            if (no2El) no2El.innerText = "Belum menerima data";
         }
         
         console.log(`[ML Performance Sync] Status: ${result.status}, R2: ${result.r2_score}%, MAE: ${result.mae_score}`);
     } catch (error) {
         console.error("Gagal menarik data performa model secara real-time:", error);
+        if (r2El) r2El.innerText = "Belum menerima data";
+        if (maeEl) maeEl.innerText = "Belum menerima data";
+        if (rmseEl) rmseEl.innerText = "Belum menerima data";
+        if (mapeEl) mapeEl.innerText = "Belum menerima data";
+
+        if (pm25El) pm25El.innerText = "Belum menerima data";
+        if (pm10El) pm10El.innerText = "Belum menerima data";
+        if (ozonEl) ozonEl.innerText = "Belum menerima data";
+        if (coEl) coEl.innerText = "Belum menerima data";
+        if (so2El) so2El.innerText = "Belum menerima data";
+        if (no2El) no2El.innerText = "Belum menerima data";
     }
 }
 

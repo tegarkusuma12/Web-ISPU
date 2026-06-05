@@ -883,11 +883,11 @@
         <!-- ==========================================
              4 & 5. STATUS DETAIL CARD & CHART CONTAINER (Detail View)
              ========================================== -->
-        <div id="detail-view" class="row g-4">
+        <div id="detail-view" class="row g-4 align-items-stretch">
             <!-- 4. Status Detail Card -->
-            <div class="col-xl-4 col-lg-5">
-                <div id="statusCard">
-                    <div class="glass-overlay">
+            <div class="col-xl-4 col-lg-5 d-flex flex-column">
+                <div id="statusCard" class="h-100 mb-0 flex-grow-1">
+                    <div class="glass-overlay h-100 d-flex flex-column justify-content-between">
                         <div>
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
                                 <div class="status-badge-inline">
@@ -909,7 +909,7 @@
                                 Status: <span id="ispuStatus" class="fw-extrabold text-uppercase">SEDANG</span>
                             </div>
                         </div>
-
+ 
                         <div class="status-param-box mb-3">
                             <div>
                                 <div class="status-param-title">Parameter Kritis</div>
@@ -919,13 +919,13 @@
                                 <i class="bi bi-activity text-white fs-4"></i>
                             </div>
                         </div>
-
+ 
                         <!-- Rekomendasi Kesehatan -->
                         <div class="p-2.5 rounded-3 bg-white bg-opacity-10 border border-white border-opacity-10 text-center mb-3" style="font-size: 0.8rem;">
                             <i class="bi bi-info-circle-fill me-1"></i> 
                             <span id="rekomendasiMasker" class="fw-medium">Memuat rekomendasi kesehatan...</span>
                         </div>
-
+ 
                         <!-- Pollutant Breakdown Grid -->
                         <div id="pollutant-grid" class="row g-2 pt-2 border-top border-white border-opacity-10">
                             <!-- Populated dynamically by app.js (5 remaining pollutants) -->
@@ -936,10 +936,10 @@
                     </div>
                 </div>
             </div>
-
+ 
             <!-- 5. Chart Container -->
-            <div class="col-xl-8 col-lg-7">
-                <div class="card-custom hover-lift p-4 h-100 d-flex flex-column">
+            <div class="col-xl-8 col-lg-7 d-flex flex-column">
+                <div class="card-custom hover-lift p-4 h-100 d-flex flex-column flex-grow-1">
                     <div class="card-header-custom border-0 p-0 pb-3 mb-2 flex-wrap gap-3">
                         <div class="d-flex align-items-center gap-2">
                             <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3">
@@ -962,7 +962,7 @@
                     <div class="card-body p-0 position-relative flex-grow-1" style="min-height: 250px;">
                         <canvas id="ispuChart"></canvas>
                     </div>
-
+ 
                     <!-- ML Model Performance Section (2 Columns) -->
                     <div class="row g-4 mt-3 pt-3 border-top border-light-subtle">
                         <!-- Left Sub-Panel: Detailed Regressive Metrics -->
@@ -978,7 +978,7 @@
                                     <tbody>
                                         <tr>
                                             <td class="ps-0 py-1">Koefisien Determinasi (R²)</td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-r2-val">96.26%</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-r2-val">Memuat...</td>
                                         </tr>
                                         <tr class="metric-col-mae" style="position: relative; cursor: help;">
                                             <td class="ps-0 py-1">
@@ -988,34 +988,34 @@
                                                 <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
                                                     <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAE Polutan (24j)</div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mae-val-pm25">1.56 µg/m³</span>
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mae-val-pm25">Memuat...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mae-val-pm10">2.58 µg/m³</span>
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mae-val-pm10">Memuat...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mae-val-ozon">3.63 ppb</span>
+                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mae-val-ozon">Memuat...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mae-val-co">21.74 ppb</span>
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mae-val-co">Memuat...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mae-val-so2">0.06 ppb</span>
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mae-val-so2">Memuat...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mae-val-no2">0.21 ppb</span>
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mae-val-no2">Memuat...</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-mae-val">3.14</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-mae-val">Memuat...</td>
                                         </tr>
                                         <tr>
                                             <td class="ps-0 py-1">Root Mean Squared Error (RMSE)</td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-rmse-val">4.28</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-rmse-val">Memuat...</td>
                                         </tr>
                                         <tr>
                                             <td class="ps-0 py-1">Mean Abs Percentage Error (MAPE)</td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-mape-val">5.18%</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-mape-val">Memuat...</td>
                                         </tr>
                                         <tr>
                                             <td class="ps-0 py-1">Latensi Inferensi Model (XGBoost)</td>
@@ -1025,7 +1025,7 @@
                                 </table>
                             </div>
                         </div>
-
+ 
                         <!-- Right Sub-Panel: Feature Importance Progress Bars -->
                         <div class="col-md-6">
                             <div class="d-flex align-items-center gap-2 mb-3">
@@ -1036,7 +1036,7 @@
                             </div>
                             
                             <!-- Feature 1: Lag-1 -->
-                            <div class="mb-2">
+                            <div class="mb-2" style="cursor: help;" title="Konsentrasi polutan 1 jam sebelum target prediksi. Merupakan prediktor terkuat dalam model forecasting runtun waktu (time-series).">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
                                     <span>Konsentrasi 1 Jam Sebelumnya (Lag-1)</span>
                                     <span class="fw-bold text-dark">45%</span>
@@ -1047,7 +1047,7 @@
                             </div>
                             
                             <!-- Feature 2: Rolling Mean 72h -->
-                            <div class="mb-2">
+                            <div class="mb-2" style="cursor: help;" title="Rata-rata konsentrasi polutan selama 3 hari terakhir (72 jam). Membantu model mengidentifikasi tren polusi jangka pendek.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
                                     <span>Rata-rata 3 Hari Terakhir (RollMean-72)</span>
                                     <span class="fw-bold text-dark">30%</span>
@@ -1058,7 +1058,7 @@
                             </div>
                             
                             <!-- Feature 3: Hour -->
-                            <div class="mb-2">
+                            <div class="mb-2" style="cursor: help;" title="Siklus jam harian (0-23). Membantu model mendeteksi fluktuasi polusi akibat jam sibuk lalu lintas atau aktivitas industri harian.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
                                     <span>Siklus Jam Aktivitas Harian (Hour)</span>
                                     <span class="fw-bold text-dark">15%</span>
@@ -1069,7 +1069,7 @@
                             </div>
                             
                             <!-- Feature 4: Spatial -->
-                            <div class="mb-2">
+                            <div class="mb-2" style="cursor: help;" title="Karakteristik khusus wilayah (ID Wilayah). Membantu model membedakan tingkat polusi antara kota industri padat dan daerah pegunungan.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
                                     <span>Lokasi / Karakteristik Wilayah</span>
                                     <span class="fw-bold text-dark">8%</span>
@@ -1080,7 +1080,7 @@
                             </div>
                             
                             <!-- Feature 5: Seasonal -->
-                            <div>
+                            <div style="cursor: help;" title="Faktor hari dalam seminggu (Senin-Minggu) dan bulan (1-12). Membantu model membedakan pola hari kerja vs akhir pekan serta perubahan musim.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
                                     <span>Faktor Mingguan & Bulanan (Temporal)</span>
                                     <span class="fw-bold text-dark">2%</span>
