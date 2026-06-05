@@ -1140,8 +1140,16 @@
                                             </td>
                                             <td class="text-end fw-bold text-dark py-1" id="model-mape-val">Loading...</td>
                                         </tr>
-                                        <tr>
-                                            <td class="ps-0 py-1">Model Inference Latency (XGBoost)</td>
+                                        <tr class="metric-col-mae" style="position: relative; cursor: help;">
+                                            <td class="ps-0 py-1">
+                                                Model Inference Latency
+                                                <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                                                <!-- Latency Details Popover -->
+                                                <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
+                                                    <div class="fw-bold mb-1" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8;">Inference Latency</div>
+                                                    <div style="font-size: 0.7rem; line-height: 1.4; opacity: 0.9;">The time required by the machine learning model (XGBoost) to calculate predictions for all 6 pollutants in a single run.</div>
+                                                </div>
+                                            </td>
                                             <td class="text-end fw-bold text-success py-1"><i class="bi bi-lightning-charge-fill me-0.5"></i>12 ms</td>
                                         </tr>
                                     </tbody>
