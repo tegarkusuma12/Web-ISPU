@@ -973,11 +973,36 @@
                                 </div>
                                 <h4 class="h6 mb-0 fw-bold">Metrik Evaluasi Model (Real-Time)</h4>
                             </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-borderless mb-0 text-muted" style="font-size: 0.8rem;">
+                            <div>
+                                <table class="table table-sm table-borderless mb-0 text-muted" style="font-size: 0.8rem; overflow: visible;">
                                     <tbody>
-                                        <tr>
-                                            <td class="ps-0 py-1">Koefisien Determinasi (R²)</td>
+                                        <tr class="metric-col-mae" style="position: relative; cursor: help;">
+                                            <td class="ps-0 py-1">
+                                                Koefisien Determinasi (R²)
+                                                <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                                                <!-- Detailed Pollutant R2 Glassmorphism Popover -->
+                                                <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian R² Polutan</div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="r2-val-pm25">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="r2-val-pm10">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="r2-val-ozon">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="r2-val-co">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="r2-val-so2">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="r2-val-no2">Memuat...</span>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td class="text-end fw-bold text-dark py-1" id="model-r2-val">Memuat...</td>
                                         </tr>
                                         <tr class="metric-col-mae" style="position: relative; cursor: help;">
@@ -1009,12 +1034,62 @@
                                             </td>
                                             <td class="text-end fw-bold text-dark py-1" id="model-mae-val">Memuat...</td>
                                         </tr>
-                                        <tr>
-                                            <td class="ps-0 py-1">Root Mean Squared Error (RMSE)</td>
+                                        <tr class="metric-col-mae" style="position: relative; cursor: help;">
+                                            <td class="ps-0 py-1">
+                                                Root Mean Squared Error (RMSE)
+                                                <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                                                <!-- Detailed Pollutant RMSE Glassmorphism Popover -->
+                                                <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian RMSE Polutan</div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="rmse-val-pm25">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="rmse-val-pm10">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="rmse-val-ozon">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="rmse-val-co">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="rmse-val-so2">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="rmse-val-no2">Memuat...</span>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td class="text-end fw-bold text-dark py-1" id="model-rmse-val">Memuat...</td>
                                         </tr>
-                                        <tr>
-                                            <td class="ps-0 py-1">Mean Abs Percentage Error (MAPE)</td>
+                                        <tr class="metric-col-mae" style="position: relative; cursor: help;">
+                                            <td class="ps-0 py-1">
+                                                Mean Abs Percentage Error (MAPE)
+                                                <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                                                <!-- Detailed Pollutant MAPE Glassmorphism Popover -->
+                                                <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAPE Polutan</div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mape-val-pm25">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mape-val-pm10">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mape-val-ozon">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mape-val-co">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mape-val-so2">Memuat...</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mape-val-no2">Memuat...</span>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td class="text-end fw-bold text-dark py-1" id="model-mape-val">Memuat...</td>
                                         </tr>
                                         <tr>
