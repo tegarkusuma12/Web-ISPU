@@ -17,14 +17,55 @@ let isTimelineReady = false; // Flag penanda apakah data timeline prediksi asink
 // ==========================================
 // FUNGSI UTILITAS UI
 // ==========================================
+function translateCategory(kategori) {
+    if (!kategori) return "";
+    switch(kategori.toLowerCase().trim()) {
+        case 'baik':
+        case 'good': return 'GOOD';
+        case 'sedang':
+        case 'moderate': return 'MODERATE';
+        case 'tidak sehat':
+        case 'unhealthy': return 'UNHEALTHY';
+        case 'sangat tidak sehat':
+        case 'very unhealthy':
+        case 'v. unhealthy': return 'VERY UNHEALTHY';
+        case 'berbahaya':
+        case 'hazardous': return 'HAZARDOUS';
+        case 'menunggu data':
+        case 'waiting for data': return 'WAITING FOR DATA';
+        default: return kategori.toUpperCase();
+    }
+}
+
+function translateDay(day) {
+    if (!day) return "";
+    const dayMap = {
+        'senin': 'Monday',
+        'selasa': 'Tuesday',
+        'rabu': 'Wednesday',
+        'kamis': 'Thursday',
+        'jumat': 'Friday',
+        'sabtu': 'Saturday',
+        'minggu': 'Sunday'
+    };
+    const cleanDay = day.toLowerCase().trim();
+    return dayMap[cleanDay] || day;
+}
+
 function getStatusColor(kategori) {
     if (!kategori) return '#6c757d'; 
-    switch(kategori.toLowerCase()) {
-        case 'baik': return '#198754'; 
-        case 'sedang': return '#0dcaf0'; 
-        case 'tidak sehat': return '#ffc107'; 
-        case 'sangat tidak sehat': return '#dc3545'; 
-        case 'berbahaya': return '#212529'; 
+    switch(kategori.toLowerCase().trim()) {
+        case 'baik':
+        case 'good': return '#198754'; 
+        case 'sedang':
+        case 'moderate': return '#0dcaf0'; 
+        case 'tidak sehat':
+        case 'unhealthy': return '#ffc107'; 
+        case 'sangat tidak sehat':
+        case 'very unhealthy':
+        case 'v. unhealthy': return '#dc3545'; 
+        case 'berbahaya':
+        case 'hazardous': return '#212529'; 
         default: return '#6c757d'; 
     }
 }
@@ -135,7 +176,7 @@ async function loadModelPerformance() {
     try {
         // Subdomain admin 
         const response = await fetch('https://lolosmigrain.cronous.my.id/api/model/performance');
-        if (!response.ok) throw new Error("Gagal mengambil respon API");
+        if (!response.ok) throw new Error("Failed to retrieve API response");
         const result = await response.json();
         
         // --- 1. KOEFISIEN DETERMINASI (R2) ---
@@ -157,7 +198,7 @@ async function loadModelPerformance() {
             setR2ElementVal(r2So2El, r2Val + 1.2);
             setR2ElementVal(r2No2El, r2Val + 0.8);
         } else {
-            const errMsg = "Belum menerima data";
+            const errMsg = "No data received";
             if (r2El) r2El.innerText = errMsg;
             if (r2Pm25El) r2Pm25El.innerText = errMsg;
             if (r2Pm10El) r2Pm10El.innerText = errMsg;
@@ -174,7 +215,7 @@ async function loadModelPerformance() {
             if (rmseEl) rmseEl.innerText = (maeVal * 1.36).toFixed(2);
             if (mapeEl) mapeEl.innerText = (maeVal * 1.65).toFixed(2) + "%";
         } else {
-            const errMsg = "Belum menerima data";
+            const errMsg = "No data received";
             if (maeEl) maeEl.innerText = errMsg;
             if (rmseEl) rmseEl.innerText = errMsg;
             if (mapeEl) mapeEl.innerText = errMsg;
@@ -206,7 +247,7 @@ async function loadModelPerformance() {
                         mapeElement.className = "fw-bold " + getMapeColorClass(mapeVal);
                     }
                 } else {
-                    const errMsg = "Belum menerima data";
+                    const errMsg = "No data received";
                     if (maeElement) maeElement.innerText = errMsg;
                     if (rmseElement) rmseElement.innerText = errMsg;
                     if (mapeElement) mapeElement.innerText = errMsg;
@@ -220,8 +261,8 @@ async function loadModelPerformance() {
             populatePolutan('SO2', so2El, rmseSo2El, mapeSo2El, 'SO2');
             populatePolutan('NO2', no2El, rmseNo2El, mapeNo2El, 'NO2');
         } else {
-            const errMsg = "Belum menerima data";
-            // Set all pollutant specific spans to "Belum menerima data"
+            const errMsg = "No data received";
+            // Set all pollutant specific spans to "No data received"
             const allSpans = [
                 pm25El, pm10El, ozonEl, coEl, so2El, no2El,
                 rmsePm25El, rmsePm10El, rmseOzonEl, rmseCoEl, rmseSo2El, rmseNo2El,
@@ -235,7 +276,7 @@ async function loadModelPerformance() {
         console.log(`[ML Performance Sync] Status: ${result.status}, R2: ${result.r2_score}%, MAE: ${result.mae_score}`);
     } catch (error) {
         console.error("Gagal menarik data performa model secara real-time:", error);
-        const errMsg = "Belum menerima data";
+        const errMsg = "No data received";
         const allSpans = [
             r2El, maeEl, rmseEl, mapeEl,
             r2Pm25El, r2Pm10El, r2OzonEl, r2CoEl, r2So2El, r2No2El,
@@ -266,7 +307,20 @@ async function loadDashboard() {
         // Show sync time instantly
         let updateText = document.getElementById('update-time-info');
         if(updateText) {
-            updateText.innerText = "Terakhir diperbarui: " + (sekarangResult.waktu_pembaruan || "Baru saja");
+            let timeStr = sekarangResult.waktu_pembaruan || "Just now";
+            if (timeStr !== "Just now") {
+                const replMap = {
+                    'Senin': 'Monday', 'Selasa': 'Tuesday', 'Rabu': 'Wednesday', 'Kamis': 'Thursday',
+                    'Jumat': 'Friday', 'Sabtu': 'Saturday', 'Minggu': 'Sunday',
+                    'Januari': 'January', 'Februari': 'February', 'Maret': 'March', 'April': 'April',
+                    'Mei': 'May', 'Juni': 'June', 'Juli': 'July', 'Agustus': 'August',
+                    'September': 'September', 'Oktober': 'October', 'November': 'November', 'Desember': 'December'
+                };
+                Object.keys(replMap).forEach(key => {
+                    timeStr = timeStr.replace(new RegExp(key, 'g'), replMap[key]);
+                });
+            }
+            updateText.innerText = "Last updated: " + timeStr;
         }
         
         // Render initial map, leaderboard, and selected city (locked/disabled state)
@@ -329,7 +383,7 @@ function updateSliderLabel() {
     if(!labelEl) return;
     
     if (allCitiesData.length === 0) {
-        labelEl.innerHTML = `Mengakses data aktual... <span class="badge bg-success ms-2">Aktual</span>`;
+        labelEl.innerHTML = `Accessing actual data... <span class="badge bg-success ms-2">Actual</span>`;
         return;
     }
     
@@ -337,9 +391,10 @@ function updateSliderLabel() {
     const sampelWaktu = allCitiesData[0].timeline[currentHourIndex];
     
     if(sampelWaktu) {
-        let teks = `${sampelWaktu.hari} - ${sampelWaktu.jam} WIB `;
-        if(currentHourIndex === 0) teks += `<span class="badge bg-primary ms-2">Sekarang</span>`;
-        else teks += `<span class="badge bg-secondary ms-2">+${currentHourIndex} Jam</span>`;
+        const translatedDayName = translateDay(sampelWaktu.hari);
+        let teks = `${translatedDayName} - ${sampelWaktu.jam} WIB `;
+        if(currentHourIndex === 0) teks += `<span class="badge bg-primary ms-2">Now</span>`;
+        else teks += `<span class="badge bg-secondary ms-2">+${currentHourIndex} Hours</span>`;
         
         labelEl.innerHTML = teks;
     }
@@ -382,7 +437,7 @@ function updateLeaderboard() {
         currentData = currentIspuData.map(d => ({
             kota: d.kota,
             nilai_ispu: d.nilai_ispu || 0,
-            kategori: d.kategori || "Baik"
+            kategori: d.kategori || "Good"
         }));
     } else if (allCitiesData.length > 0) {
         // Once timeline predictions are fully ready (Phase 3), strictly read from rolling_24h timelines (0h - 24h)
@@ -391,7 +446,7 @@ function updateLeaderboard() {
             return {
                 kota: d.kota,
                 nilai_ispu: timeData ? timeData.nilai_ispu : 0,
-                kategori: timeData ? timeData.kategori : "Menunggu Data"
+                kategori: timeData ? timeData.kategori : "Waiting for Data"
             };
         });
     }
@@ -459,11 +514,11 @@ function updateLeaderboard() {
             const rataRata = Math.round(totalIspu / validData.length);
             kpiAvgValue.innerText = rataRata;
             
-            let avgKategori = "Baik";
-            if (rataRata > 50) avgKategori = "Sedang";
-            if (rataRata > 100) avgKategori = "Tidak Sehat";
-            if (rataRata > 200) avgKategori = "Sangat Tidak Sehat";
-            if (rataRata > 300) avgKategori = "Berbahaya";
+            let avgKategori = "Good";
+            if (rataRata > 50) avgKategori = "Moderate";
+            if (rataRata > 100) avgKategori = "Unhealthy";
+            if (rataRata > 200) avgKategori = "Very Unhealthy";
+            if (rataRata > 300) avgKategori = "Hazardous";
             kpiAvgValue.style.backgroundColor = getStatusColor(avgKategori);
         } else {
             kpiAvgValue.innerText = "--";
@@ -498,7 +553,7 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     const statusCardEl = document.getElementById('statusCard');
     const sourceBadgeEl = document.getElementById('ispu-source-badge'); // New dynamic badge!
 
-    if (selectedCityTitleEl) selectedCityTitleEl.innerText = `Detail Wilayah: ${kota}`;
+    if (selectedCityTitleEl) selectedCityTitleEl.innerText = `Region Details: ${kota}`;
     if (ispuValueEl) ispuValueEl.innerText = "...";
     if (ispuStatusEl) ispuStatusEl.innerText = "...";
     if (kritisValueEl) kritisValueEl.innerText = "...";
@@ -506,10 +561,10 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     // Set dynamic Actual vs AI Prediction source badge based on current hour index
     if (sourceBadgeEl) {
         if (currentHourIndex === 0) {
-            sourceBadgeEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Data Aktual (Riil)`;
+            sourceBadgeEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Actual Data (Real-time)`;
             sourceBadgeEl.className = "status-badge-inline bg-success border-0 shadow-sm text-white";
         } else {
-            sourceBadgeEl.innerHTML = `<i class="bi bi-cpu-fill me-1"></i> Data Prediksi AI`;
+            sourceBadgeEl.innerHTML = `<i class="bi bi-cpu-fill me-1"></i> AI Prediction Data`;
             sourceBadgeEl.className = "status-badge-inline bg-primary border-0 shadow-sm text-white";
         }
     }
@@ -534,7 +589,7 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
     if (gridEl) {
         gridEl.innerHTML = `
             <div class="col-12 text-center py-2 text-white-50" style="font-size: 0.8rem;">
-                <i class="bi bi-cpu me-1 animate-spin"></i> Menghitung sebaran polutan...
+                <i class="bi bi-cpu me-1 animate-spin"></i> Calculating pollutant distribution...
             </div>
         `;
     } else {
@@ -543,7 +598,7 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
         if (so2El) so2El.innerText = "...";
         if (coEl) coEl.innerText = "...";
     }
-    if (maskerEl) maskerEl.innerText = "Menganalisis kualitas udara...";
+    if (maskerEl) maskerEl.innerText = "Analyzing air quality...";
     
     setTimeout(() => {
         let dataKotaIni = allCitiesData.find(d => d.kota === kota);
@@ -606,20 +661,20 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
             const nilaiIspuUtama = maxPollutant.value > 0 ? maxPollutant.value : (timeData.nilai_ispu || 0);
             
             // Determine health category dynamically based on the highest ISPU score
-            let kategoriUtama = "Baik";
-            if (nilaiIspuUtama > 50) kategoriUtama = "Sedang";
-            if (nilaiIspuUtama > 100) kategoriUtama = "Tidak Sehat";
-            if (nilaiIspuUtama > 200) kategoriUtama = "Sangat Tidak Sehat";
-            if (nilaiIspuUtama > 300) kategoriUtama = "Berbahaya";
+            let kategoriUtama = "Good";
+            if (nilaiIspuUtama > 50) kategoriUtama = "Moderate";
+            if (nilaiIspuUtama > 100) kategoriUtama = "Unhealthy";
+            if (nilaiIspuUtama > 200) kategoriUtama = "Very Unhealthy";
+            if (nilaiIspuUtama > 300) kategoriUtama = "Hazardous";
 
             if (ispuValueEl) ispuValueEl.innerText = nilaiIspuUtama;
-            if (ispuStatusEl) ispuStatusEl.innerText = kategoriUtama;
+            if (ispuStatusEl) ispuStatusEl.innerText = translateCategory(kategoriUtama);
             if (kritisValueEl) kritisValueEl.innerText = maxPollutant.key;
             
             if (statusCardEl) {
                 statusCardEl.style.backgroundColor = getStatusColor(kategoriUtama);
                 // ONLY trigger high-contrast dark text on Yellow/Tidak Sehat. Sedang (Cyan) remains gorgeous in pristine white!
-                const isLightBg = (kategoriUtama.toLowerCase() === 'tidak sehat');
+                const isLightBg = (kategoriUtama.toLowerCase() === 'tidak sehat' || kategoriUtama.toLowerCase() === 'unhealthy');
                 if (isLightBg) {
                     statusCardEl.classList.add('theme-dark-text');
                 } else {
@@ -628,22 +683,27 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
             }
 
             // 1. UPDATE LOGIKA REKOMENDASI KESEHATAN (DEFENSIVE CHECK)
-            let rekomendasiTeks = "Aman untuk beraktivitas di luar ruangan.";
+            let rekomendasiTeks = "Safe for outdoor activities.";
             switch(kategoriUtama.toLowerCase()) {
                 case 'baik':
-                    rekomendasiTeks = "Sangat baik untuk aktivitas outdoor & olahraga!";
+                case 'good':
+                    rekomendasiTeks = "Excellent for outdoor activities & sports!";
                     break;
                 case 'sedang':
-                    rekomendasiTeks = "Kualitas udara sedang. Kelompok sensitif sebaiknya mengurangi aktivitas luar ruangan.";
+                case 'moderate':
+                    rekomendasiTeks = "Moderate air quality. Sensitive groups should reduce outdoor activity.";
                     break;
                 case 'tidak sehat':
-                    rekomendasiTeks = "Gunakan masker medis jika harus beraktivitas di luar ruangan.";
+                case 'unhealthy':
+                    rekomendasiTeks = "Wear a medical mask if you must go outdoors.";
                     break;
                 case 'sangat tidak sehat':
-                    rekomendasiTeks = "Hindari aktivitas fisik di luar. Kelompok rentan tetap di dalam rumah.";
+                case 'very unhealthy':
+                    rekomendasiTeks = "Avoid outdoor physical activities. Vulnerable groups should stay indoors.";
                     break;
                 case 'berbahaya':
-                    rekomendasiTeks = "DILARANG beraktivitas di luar ruangan! Jaga seluruh jendela tetap tertutup.";
+                case 'hazardous':
+                    rekomendasiTeks = "OUTDOOR ACTIVITIES PROHIBITED! Keep all windows closed.";
                     break;
             }
             if (maskerEl) maskerEl.innerText = rekomendasiTeks;
@@ -719,7 +779,7 @@ async function renderPetaWarna() {
         // Cache file jatim.json agar tidak perlu didownload berulang kali saat tuas digeser
         if (!jatimGeoJSON) {
             const response = await fetch('jatim.json');
-            if (!response.ok) throw new Error("File jatim.json tidak ditemukan");
+            if (!response.ok) throw new Error("File jatim.json not found");
             jatimGeoJSON = await response.json();
         }
 
@@ -792,13 +852,13 @@ async function renderPetaWarna() {
                         <div style="padding: 2px;">
                             <b>${namaKota}</b><br>
                             <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
-                                <span style="font-weight: 500; opacity: 0.85;">Indeks ISPU:</span>
+                                <span style="font-weight: 500; opacity: 0.85;">ISPU Index:</span>
                                 <span style="background: ${getStatusColor(kategori)}; color: #fff; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem;">
                                     ${ispuVal}
                                 </span>
                             </div>
                             <div style="margin-top: 4px; font-size: 0.75rem; opacity: 0.7;">
-                                Status: <span style="font-weight: 600; text-transform: uppercase;">${kategori}</span>
+                                Status: <span style="font-weight: 600; text-transform: uppercase;">${translateCategory(kategori)}</span>
                             </div>
                         </div>
                     `;
@@ -840,7 +900,7 @@ async function fetchIspuData(kota, jumlahHari) {
         
         // Tarik data historis dari Backend
         const response = await fetch(`https://lolosmigrain.cronous.my.id/api/ispu/${urlSafeKota}?days=${jumlahHari}`);
-        if (!response.ok) throw new Error("Data grafik belum tersedia.");
+        if (!response.ok) throw new Error("Chart data not available.");
 
         const result = await response.json();
         let dataGrafik = [];
@@ -1010,7 +1070,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
             labels: labelsWaktu,
             datasets: [
                 {
-                    label: 'Historis (Kemarin - Sekarang)',
+                    label: 'Historical (Yesterday - Now)',
                     data: dataMasaLalu,
                     borderColor: ispuBorderGradient, // Menerapkan gradien dinamis pada garis
                     backgroundColor: ispuFillGradient,   // Menerapkan gradien dinamis pada fill
@@ -1020,7 +1080,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
                     tension: 0.4 // Membuat kurva melengkung halus
                 },
                 {
-                    label: 'Prediksi (1 - 24 Jam Kedepan)',
+                    label: 'Predicted (1 - 24 Hours Ahead)',
                     data: dataMasaDepan,
                     borderColor: ispuBorderGradient, // Gradien dinamis pada garis prediksi
                     borderDash: [6, 6], // Membuat garis putus-putus
@@ -1037,7 +1097,7 @@ function updateChart(dataGrafik, kota, tipeFilter = '7') {
         configData = {
             labels: labelsWaktu,
             datasets: [{
-                label: `Nilai ISPU ${kota}`,
+                label: `ISPU Score of ${kota}`,
                 data: dataGrafik.map(row => row.nilai_ispu),
                 borderColor: ispuBorderGradient, // Menerapkan gradien dinamis pada garis
                 backgroundColor: ispuFillGradient,   // Menerapkan gradien dinamis pada fill

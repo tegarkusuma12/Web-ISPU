@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISPU Jawa Timur Predictive Dashboard</title>
+    <title>East Java ISPU Predictive Dashboard</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="AeroGuard adalah sistem predictive dashboard standar kualitas udara (ISPU) di wilayah Jawa Timur. Dikembangkan dengan pemodelan data science tingkat lanjut.">
+    <meta name="description" content="AeroGuard is a predictive dashboard system for air quality standards (ISPU) in the East Java region, developed with advanced data science modeling.">
     <meta name="author" content="Applied Data Science PENS">
     
     <!-- Premium Fonts from Google -->
@@ -699,11 +699,11 @@
                         <div>
                             <span class="brand-badge mb-1 d-inline-block">Applied Data Science | PENS</span>
                             <h1 class="h3 mb-1 text-white d-flex align-items-center gap-2">
-                                ISPU Predictions <span class="fw-light text-white-50">Jawa Timur</span>
+                                ISPU Predictions <span class="fw-light text-white-50">East Java</span>
                             </h1>
                             <div class="d-flex align-items-center gap-2 text-white-50 mt-1">
                                 <i class="bi bi-clock-history"></i>
-                                <small id="update-time-info" class="fw-medium">Memuat status sinkronisasi waktu...</small>
+                                <small id="update-time-info" class="fw-medium">Loading time synchronization status...</small>
                             </div>
                         </div>
                     </div>
@@ -711,10 +711,10 @@
                 <div class="col-lg-5">
                     <div class="d-flex justify-content-lg-end">
                         <div class="search-container">
-                            <label for="city-search" class="visually-hidden">Cari Kota atau Kabupaten</label>
+                            <label for="city-search" class="visually-hidden">Search City or Regency</label>
                             <div class="search-wrapper">
                                 <i class="bi bi-search"></i>
-                                <input type="text" id="city-search" list="daftar-kota" class="search-input" placeholder="Cari Kota / Kabupaten di Jatim...">
+                                <input type="text" id="city-search" list="daftar-kota" class="search-input" placeholder="Search City / Regency in East Java...">
                                 <datalist id="daftar-kota"></datalist>
                             </div>
                         </div>
@@ -734,14 +734,14 @@
                             <i class="bi bi-sliders2-vertical fs-4"></i>
                         </div>
                         <div>
-                            <h2 class="h5 mb-0">Eksplorasi Waktu Prediktif</h2>
-                            <p class="text-muted small mb-0">Geser untuk menjelajahi prakiraan kualitas udara 24 jam ke depan</p>
+                            <h2 class="h5 mb-0">Predictive Time Exploration</h2>
+                            <p class="text-muted small mb-0">Slide to explore 24-hour ahead air quality predictions</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-7 text-md-end">
                     <span id="slider-label" class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm">
-                        Menghubungkan ke satelit prediksi...
+                        Connecting to prediction satellite...
                     </span>
                 </div>
             </div>
@@ -749,11 +749,11 @@
             <div class="px-2 mt-2">
                 <input type="range" id="timeSlider" class="custom-slider" oninput="handleSliderChange(this.value)" min="0" max="24" step="1" value="0" disabled>
                 <div class="slider-ticks">
-                    <div class="tick-label active-tick">Sekarang<span>0h</span></div>
-                    <div class="tick-label">+6 Jam<span>6h</span></div>
-                    <div class="tick-label">+12 Jam<span>12h</span></div>
-                    <div class="tick-label">+18 Jam<span>18h</span></div>
-                    <div class="tick-label">Prediksi 24 Jam<span>24h</span></div>
+                    <div class="tick-label active-tick">Now<span>0h</span></div>
+                    <div class="tick-label">+6 Hours<span>6h</span></div>
+                    <div class="tick-label">+12 Hours<span>12h</span></div>
+                    <div class="tick-label">+18 Hours<span>18h</span></div>
+                    <div class="tick-label">24h Prediction<span>24h</span></div>
                 </div>
             </div>
         </section>
@@ -769,7 +769,7 @@
                             <i class="bi bi-exclamation-triangle-fill fs-4"></i>
                         </div>
                         <div>
-                            <span class="text-muted small d-block">Polusi Tertinggi</span>
+                            <span class="text-muted small d-block">Highest Pollution</span>
                             <span id="kpi-highest-city" class="fw-bold fs-6">Surabaya</span>
                         </div>
                     </div>
@@ -783,8 +783,8 @@
                             <i class="bi bi-speedometer2 fs-4"></i>
                         </div>
                         <div>
-                            <span class="text-muted small d-block">Rata-rata Jawa Timur</span>
-                            <span class="fw-bold fs-6">Index ISPU Gabungan</span>
+                            <span class="text-muted small d-block">East Java Average</span>
+                            <span class="fw-bold fs-6">Combined ISPU Index</span>
                         </div>
                     </div>
                     <span id="kpi-avg-value" class="badge bg-primary rounded-pill fs-7">54</span>
@@ -797,7 +797,7 @@
                             <i class="bi bi-shield-check fs-4"></i>
                         </div>
                         <div>
-                            <span class="text-muted small d-block">Kondisi Terbersih</span>
+                            <span class="text-muted small d-block">Cleanest Condition</span>
                             <span id="kpi-lowest-city" class="fw-bold fs-6">Banyuwangi</span>
                         </div>
                     </div>
@@ -816,7 +816,7 @@
                     <div class="card-header-custom border-0 pb-2">
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-map text-primary fs-5"></i>
-                            <h3 class="h6 mb-0">Peta Sebaran Konsentrasi ISPU</h3>
+                            <h3 class="h6 mb-0">ISPU Concentration Distribution Map</h3>
                         </div>
                         <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2.5 py-1">Choropleth Map</span>
                     </div>
@@ -825,11 +825,11 @@
                         
                         <!-- Map Colors Legend -->
                         <div class="map-legend-container">
-                            <div class="legend-item" style="background-color: var(--color-baik);">Baik (1-50)</div>
-                            <div class="legend-item" style="background-color: var(--color-sedang);">Sedang (51-100)</div>
-                            <div class="legend-item" style="background-color: var(--color-tidak-sehat); color: #000000;">T. Sehat (101-200)</div>
-                            <div class="legend-item" style="background-color: var(--color-sangat-tidak-sehat);">S. T. Sehat (201-300)</div>
-                            <div class="legend-item" style="background-color: var(--color-berbahaya);">Berbahaya (300+)</div>
+                            <div class="legend-item" style="background-color: var(--color-baik);">Good (1-50)</div>
+                            <div class="legend-item" style="background-color: var(--color-sedang);">Moderate (51-100)</div>
+                            <div class="legend-item" style="background-color: var(--color-tidak-sehat); color: #000000;">Unhealthy (101-200)</div>
+                            <div class="legend-item" style="background-color: var(--color-sangat-tidak-sehat);">V. Unhealthy (201-300)</div>
+                            <div class="legend-item" style="background-color: var(--color-berbahaya);">Hazardous (300+)</div>
                         </div>
                     </div>
                 </div>
@@ -842,7 +842,7 @@
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <div class="leaderboard-title">
                                 <i class="bi bi-bar-chart-steps text-danger fs-5"></i>
-                                <span>Leaderboard Kualitas Udara</span>
+                                <span>Air Quality Leaderboard</span>
                             </div>
                             <i class="bi bi-arrow-down-up text-muted"></i>
                         </div>
@@ -853,7 +853,7 @@
                             <div class="col-md-6">
                                 <div class="p-3 bg-danger bg-opacity-10 border border-danger-subtle rounded-3 h-100">
                                     <h4 class="h6 mb-2 text-danger d-flex align-items-center gap-1.5 fw-bold">
-                                        <i class="bi bi-cloud-haze-fill"></i> Terburuk
+                                        <i class="bi bi-cloud-haze-fill"></i> Worst
                                     </h4>
                                     <ul id="list-terburuk" class="list-group list-group-flush leaderboard-container">
                                         <!-- Will be dynamically populated by app.js -->
@@ -864,7 +864,7 @@
                             <div class="col-md-6">
                                 <div class="p-3 bg-success bg-opacity-10 border border-success-subtle rounded-3 h-100">
                                     <h4 class="h6 mb-2 text-success d-flex align-items-center gap-1.5 fw-bold">
-                                        <i class="bi bi-heart-pulse-fill"></i> Terbersih
+                                        <i class="bi bi-heart-pulse-fill"></i> Cleanest
                                     </h4>
                                     <ul id="list-terbersih" class="list-group list-group-flush leaderboard-container">
                                         <!-- Will be dynamically populated by app.js -->
@@ -874,7 +874,7 @@
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-top text-center text-muted small">
-                        <i class="bi bi-info-circle me-1"></i> Klik nama wilayah di atas untuk melihat tren prediksi
+                        <i class="bi bi-info-circle me-1"></i> Click region names above to view prediction trends
                     </div>
                 </div>
             </div>
@@ -892,27 +892,27 @@
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
                                 <div class="status-badge-inline">
                                     <i class="bi bi-geo-alt-fill"></i>
-                                    <span>Wilayah Terpilih</span>
+                                    <span>Selected Region</span>
                                 </div>
                                 <div id="ispu-source-badge" class="status-badge-inline bg-success border-0 shadow-sm text-white" style="font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="bi bi-check-circle-fill"></i> Data Aktual (Riil)
+                                    <i class="bi bi-check-circle-fill"></i> Actual Data (Real-time)
                                 </div>
                             </div>
-                            <h3 id="selectedCityTitle" class="mt-3 status-title-text mb-0">Detail Wilayah: Surabaya</h3>
+                            <h3 id="selectedCityTitle" class="mt-3 status-title-text mb-0">Region Details: Surabaya</h3>
                         </div>
                         
                         <div>
-                            <div class="text-white-50 small text-uppercase letter-spacing-0.1 fw-bold">Nilai Konsentrasi ISPU</div>
+                            <div class="text-white-50 small text-uppercase letter-spacing-0.1 fw-bold">ISPU Concentration Score</div>
                             <div id="ispuValue" class="val-ispu">76</div>
                             
                             <div class="status-badge-inline bg-white text-dark mb-3 border-0 shadow-sm" style="font-size: 0.95rem;">
-                                Status: <span id="ispuStatus" class="fw-extrabold text-uppercase">SEDANG</span>
+                                Status: <span id="ispuStatus" class="fw-extrabold text-uppercase">MODERATE</span>
                             </div>
                         </div>
  
                         <div class="status-param-box mb-3">
                             <div>
-                                <div class="status-param-title">Parameter Kritis</div>
+                                <div class="status-param-title">Critical Parameter</div>
                                 <div id="kritisValue" class="status-param-val">PM2.5</div>
                             </div>
                             <div class="bg-white bg-opacity-20 p-2 rounded-circle">
@@ -923,14 +923,14 @@
                         <!-- Rekomendasi Kesehatan -->
                         <div class="p-2.5 rounded-3 bg-white bg-opacity-10 border border-white border-opacity-10 text-center mb-3" style="font-size: 0.8rem;">
                             <i class="bi bi-info-circle-fill me-1"></i> 
-                            <span id="rekomendasiMasker" class="fw-medium">Memuat rekomendasi kesehatan...</span>
+                            <span id="rekomendasiMasker" class="fw-medium">Loading health recommendations...</span>
                         </div>
  
                         <!-- Pollutant Breakdown Grid -->
                         <div id="pollutant-grid" class="row g-2 pt-2 border-top border-white border-opacity-10">
                             <!-- Populated dynamically by app.js (5 remaining pollutants) -->
                             <div class="col-12 text-center py-2 text-white-50" style="font-size: 0.8rem;">
-                                <i class="bi bi-cpu me-1"></i> Memuat detail polutan...
+                                <i class="bi bi-cpu me-1"></i> Loading pollutant breakdown...
                             </div>
                         </div>
                     </div>
@@ -946,16 +946,16 @@
                                 <i class="bi bi-graph-up-arrow fs-5"></i>
                             </div>
                             <div>
-                                <h3 class="h6 mb-0">Tren Kualitas Udara Historis & Prediktif</h3>
-                                <p class="text-muted small mb-0">Visualisasi standar konsentrasi ISPU berdasarkan waktu pilihan</p>
+                                <h3 class="h6 mb-0">Historical & Predictive Air Quality Trends</h3>
+                                <p class="text-muted small mb-0">Visualization of standard ISPU concentrations based on selected time</p>
                             </div>
                         </div>
                         
                         <!-- Interval Selectors -->
                         <div class="segmented-controls">
-                            <button type="button" id="btn-24-jam" class="segmented-btn" onclick="ubahFilterHari('24jam')">24 Jam</button>
-                            <button type="button" id="btn-7-hari" class="segmented-btn active" onclick="ubahFilterHari(7)">7 Hari</button>
-                            <button type="button" id="btn-30-hari" class="segmented-btn" onclick="ubahFilterHari(30)">30 Hari</button>
+                            <button type="button" id="btn-24-jam" class="segmented-btn" onclick="ubahFilterHari('24jam')">24 Hours</button>
+                            <button type="button" id="btn-7-hari" class="segmented-btn active" onclick="ubahFilterHari(7)">7 Days</button>
+                            <button type="button" id="btn-30-hari" class="segmented-btn" onclick="ubahFilterHari(30)">30 Days</button>
                         </div>
                     </div>
                     
@@ -971,39 +971,39 @@
                                 <div class="p-1.5 rounded bg-primary bg-opacity-10 text-primary d-inline-flex" style="font-size: 1rem;">
                                     <i class="bi bi-speedometer2"></i>
                                 </div>
-                                <h4 class="h6 mb-0 fw-bold">Metrik Evaluasi Model (Real-Time)</h4>
+                                <h4 class="h6 mb-0 fw-bold">Model Evaluation Metrics (Real-Time)</h4>
                             </div>
                             <div>
                                 <table class="table table-sm table-borderless mb-0 text-muted" style="font-size: 0.8rem; overflow: visible;">
                                     <tbody>
                                         <tr class="metric-col-mae" style="position: relative; cursor: help;">
                                             <td class="ps-0 py-1">
-                                                Koefisien Determinasi (R²)
+                                                Coefficient of Determination (R²)
                                                 <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
                                                 <!-- Detailed Pollutant R2 Glassmorphism Popover -->
                                                 <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
-                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian R² Polutan</div>
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Individual Pollutant R² Breakdown</div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="r2-val-pm25">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="r2-val-pm25">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="r2-val-pm10">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="r2-val-pm10">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="r2-val-ozon">Memuat...</span>
+                                                        <span style="opacity: 0.85;">Ozone (O3):</span><span class="fw-bold" id="r2-val-ozon">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="r2-val-co">Memuat...</span>
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="r2-val-co">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="r2-val-so2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="r2-val-so2">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="r2-val-no2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="r2-val-no2">Loading...</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-r2-val">Memuat...</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-r2-val">Loading...</td>
                                         </tr>
                                         <tr class="metric-col-mae" style="position: relative; cursor: help;">
                                             <td class="ps-0 py-1">
@@ -1011,28 +1011,28 @@
                                                 <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
                                                 <!-- Detailed Pollutant MAE Glassmorphism Popover -->
                                                 <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
-                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAE Polutan (24j)</div>
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Individual Pollutant MAE Breakdown (24h)</div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mae-val-pm25">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mae-val-pm25">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mae-val-pm10">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mae-val-pm10">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mae-val-ozon">Memuat...</span>
+                                                        <span style="opacity: 0.85;">Ozone (O3):</span><span class="fw-bold" id="mae-val-ozon">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mae-val-co">Memuat...</span>
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mae-val-co">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mae-val-so2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mae-val-so2">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mae-val-no2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mae-val-no2">Loading...</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-mae-val">Memuat...</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-mae-val">Loading...</td>
                                         </tr>
                                         <tr class="metric-col-mae" style="position: relative; cursor: help;">
                                             <td class="ps-0 py-1">
@@ -1040,60 +1040,60 @@
                                                 <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
                                                 <!-- Detailed Pollutant RMSE Glassmorphism Popover -->
                                                 <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
-                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian RMSE Polutan</div>
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Individual Pollutant RMSE Breakdown</div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="rmse-val-pm25">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="rmse-val-pm25">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="rmse-val-pm10">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="rmse-val-pm10">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="rmse-val-ozon">Memuat...</span>
+                                                        <span style="opacity: 0.85;">Ozone (O3):</span><span class="fw-bold" id="rmse-val-ozon">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="rmse-val-co">Memuat...</span>
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="rmse-val-co">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="rmse-val-so2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="rmse-val-so2">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="rmse-val-no2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="rmse-val-no2">Loading...</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-rmse-val">Memuat...</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-rmse-val">Loading...</td>
                                         </tr>
                                         <tr class="metric-col-mae" style="position: relative; cursor: help;">
                                             <td class="ps-0 py-1">
-                                                Mean Abs Percentage Error (MAPE)
+                                                Mean Absolute Percentage Error (MAPE)
                                                 <i class="bi bi-info-circle ms-1 text-muted" style="font-size: 0.7rem;"></i>
                                                 <!-- Detailed Pollutant MAPE Glassmorphism Popover -->
                                                 <div class="mae-details-popup" style="bottom: 110%; transform: translateX(-50%) translateY(10px); left: 50%;">
-                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Rincian MAPE Polutan</div>
+                                                    <div class="fw-bold mb-2 pb-1 border-bottom" style="font-size: 0.75rem; text-transform: uppercase; color: #38bdf8; border-color: rgba(255,255,255,0.15) !important;">Individual Pollutant MAPE Breakdown</div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mape-val-pm25">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM2.5:</span><span class="fw-bold" id="mape-val-pm25">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mape-val-pm10">Memuat...</span>
+                                                        <span style="opacity: 0.85;">PM10:</span><span class="fw-bold" id="mape-val-pm10">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">Ozon (O3):</span><span class="fw-bold" id="mape-val-ozon">Memuat...</span>
+                                                        <span style="opacity: 0.85;">Ozone (O3):</span><span class="fw-bold" id="mape-val-ozon">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mape-val-co">Memuat...</span>
+                                                        <span style="opacity: 0.85;">CO:</span><span class="fw-bold" id="mape-val-co">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between mb-1" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mape-val-so2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">SO2:</span><span class="fw-bold" id="mape-val-so2">Loading...</span>
                                                     </div>
                                                     <div class="d-flex justify-content-between" style="font-size: 0.7rem;">
-                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mape-val-no2">Memuat...</span>
+                                                        <span style="opacity: 0.85;">NO2:</span><span class="fw-bold" id="mape-val-no2">Loading...</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-bold text-dark py-1" id="model-mape-val">Memuat...</td>
+                                            <td class="text-end fw-bold text-dark py-1" id="model-mape-val">Loading...</td>
                                         </tr>
                                         <tr>
-                                            <td class="ps-0 py-1">Latensi Inferensi Model (XGBoost)</td>
+                                            <td class="ps-0 py-1">Model Inference Latency (XGBoost)</td>
                                             <td class="text-end fw-bold text-success py-1"><i class="bi bi-lightning-charge-fill me-0.5"></i>12 ms</td>
                                         </tr>
                                     </tbody>
@@ -1107,13 +1107,13 @@
                                 <div class="p-1.5 rounded bg-success bg-opacity-10 text-success d-inline-flex" style="font-size: 1rem;">
                                     <i class="bi bi-cpu-fill"></i>
                                 </div>
-                                <h4 class="h6 mb-0 fw-bold">Pengaruh Fitur XGBoost (Explainable AI)</h4>
+                                <h4 class="h6 mb-0 fw-bold">XGBoost Feature Importance (Explainable AI)</h4>
                             </div>
                             
                             <!-- Feature 1: Lag-1 -->
-                            <div class="mb-2" style="cursor: help;" title="Konsentrasi polutan 1 jam sebelum target prediksi. Merupakan prediktor terkuat dalam model forecasting runtun waktu (time-series).">
+                            <div class="mb-2" style="cursor: help;" title="Pollutant concentration 1 hour before prediction target. The strongest predictor in time-series forecasting models.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
-                                    <span>Konsentrasi 1 Jam Sebelumnya (Lag-1)</span>
+                                    <span>Previous 1 Hour Concentration (Lag-1)</span>
                                     <span class="fw-bold text-dark">45%</span>
                                 </div>
                                 <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
@@ -1122,9 +1122,9 @@
                             </div>
                             
                             <!-- Feature 2: Rolling Mean 72h -->
-                            <div class="mb-2" style="cursor: help;" title="Rata-rata konsentrasi polutan selama 3 hari terakhir (72 jam). Membantu model mengidentifikasi tren polusi jangka pendek.">
+                            <div class="mb-2" style="cursor: help;" title="Average pollutant concentration over the last 3 days (72 hours). Helps the model identify short-term pollution trends.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
-                                    <span>Rata-rata 3 Hari Terakhir (RollMean-72)</span>
+                                    <span>Past 3-Day Average (RollMean-72)</span>
                                     <span class="fw-bold text-dark">30%</span>
                                 </div>
                                 <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
@@ -1133,9 +1133,9 @@
                             </div>
                             
                             <!-- Feature 3: Hour -->
-                            <div class="mb-2" style="cursor: help;" title="Siklus jam harian (0-23). Membantu model mendeteksi fluktuasi polusi akibat jam sibuk lalu lintas atau aktivitas industri harian.">
+                            <div class="mb-2" style="cursor: help;" title="Daily hour cycle (0-23). Helps the model detect pollution fluctuations due to traffic rush hours or daily industrial activities.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
-                                    <span>Siklus Jam Aktivitas Harian (Hour)</span>
+                                    <span>Daily Activity Hour Cycle (Hour)</span>
                                     <span class="fw-bold text-dark">15%</span>
                                 </div>
                                 <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
@@ -1144,9 +1144,9 @@
                             </div>
                             
                             <!-- Feature 4: Spatial -->
-                            <div class="mb-2" style="cursor: help;" title="Karakteristik khusus wilayah (ID Wilayah). Membantu model membedakan tingkat polusi antara kota industri padat dan daerah pegunungan.">
+                            <div class="mb-2" style="cursor: help;" title="Specific region characteristics (Region ID). Helps the model differentiate pollution levels between dense industrial cities and mountainous areas.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
-                                    <span>Lokasi / Karakteristik Wilayah</span>
+                                    <span>Location / Region Characteristics</span>
                                     <span class="fw-bold text-dark">8%</span>
                                 </div>
                                 <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
@@ -1155,9 +1155,9 @@
                             </div>
                             
                             <!-- Feature 5: Seasonal -->
-                            <div style="cursor: help;" title="Faktor hari dalam seminggu (Senin-Minggu) dan bulan (1-12). Membantu model membedakan pola hari kerja vs akhir pekan serta perubahan musim.">
+                            <div style="cursor: help;" title="Day-of-week (Monday-Sunday) and month (1-12) factors. Helps the model distinguish weekday vs. weekend patterns and seasonal changes.">
                                 <div class="d-flex justify-content-between text-muted mb-1" style="font-size: 0.75rem;">
-                                    <span>Faktor Mingguan & Bulanan (Temporal)</span>
+                                    <span>Weekly & Monthly Factors (Temporal)</span>
                                     <span class="fw-bold text-dark">2%</span>
                                 </div>
                                 <div class="progress" style="height: 6px; background: rgba(0,0,0,0.06); border-radius: 50px;">
