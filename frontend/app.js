@@ -320,7 +320,7 @@ async function loadDashboard() {
                     timeStr = timeStr.replace(new RegExp(key, 'g'), replMap[key]);
                 });
             }
-            updateText.innerText = "Last updated: " + timeStr;
+            updateText.innerHTML = `<i class="bi bi-clock-history"></i> Last updated: ${timeStr}`;
         }
         
         // Render initial map, leaderboard, and selected city (locked/disabled state)
