@@ -420,7 +420,7 @@ function populateSearch(data) {
     if (isCitySelected) {
         selectEl.value = kotaAktif;
     } else {
-        selectEl.value = "";
+        selectEl.selectedIndex = 0;
     }
 
     selectEl.addEventListener('change', (e) => {
@@ -560,7 +560,7 @@ function pilihKota(kota, scrollAndFetchGraph = true) {
         if (isCitySelected) {
             searchInput.value = kota;
         } else {
-            searchInput.value = "";
+            searchInput.selectedIndex = 0;
         }
     }
     
